@@ -14,6 +14,7 @@ const genlinkHandler = require('./handlers/genlink');
 const paymentHandler = require('./handlers/payment');
 const balanceHandler = require('./handlers/balance');
 const panelsHandler = require('./handlers/panels');
+const backupHandler = require('./handlers/backup');
 
 function createBot() {
   const bot = new TelegramBot(config.telegram.token, { polling: true });
@@ -31,6 +32,7 @@ function createBot() {
   paymentHandler.register(bot);
   balanceHandler.register(bot);
   panelsHandler.register(bot);
+  backupHandler.register(bot);
   // listAll registered last — its /list regex could match /listexpiring
   listAllHandler.register(bot);
 
@@ -50,6 +52,7 @@ function createBot() {
     { command: 'balance', description: 'Check subscriber balance' },
     { command: 'panels', description: 'Panel health status' },
     { command: 'genlink', description: 'Generate customer link code' },
+    { command: 'backup', description: 'Create/list/stats backups' },
   ]);
 
   bot.on('polling_error', (err) => {

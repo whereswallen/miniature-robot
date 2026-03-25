@@ -3,6 +3,7 @@ const config = require('../config');
 const alertService = require('../services/alertService');
 const reminderService = require('../services/reminderService');
 const customerNotification = require('../services/customerNotificationService');
+const backupService = require('../services/backupService');
 
 function start(adminBot) {
   cron.schedule(config.scheduler.cronSchedule, async () => {
@@ -62,6 +63,19 @@ function start(adminBot) {
   });
 
   console.log(`Scheduler started (${config.scheduler.cronSchedule}).`);
+
+  // Scheduled auto-backup — runs daily at 2 AM
+  const backupSchedule = config.scheduler.backupCronSchedule || '0 2 * * *';
+  cron.schedule(backupSchedule, () => {
+    try {
+      const backup = backupService.createBackup('auto');
+      console.log(`Auto-backup created: ${backup.filename} (${backup.sizeFormatted})`);
+    } catch (err) {
+      console.error('Auto-backup failed:', err.message);
+    }
+  });
+
+  console.log(`Auto-backup scheduled (${backupSchedule}).`);
 }
 
 module.exports = { start };

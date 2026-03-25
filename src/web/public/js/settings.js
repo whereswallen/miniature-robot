@@ -123,6 +123,64 @@ document.getElementById('alert-form').addEventListener('submit', async (e) => {
   } catch (err) { toast(err.message, 'error'); }
 });
 
+// Backups
+async function loadBackups() {
+  try {
+    const data = await api('/api/settings/backups');
+    const { stats, backups } = data;
+
+    document.getElementById('backup-stats').innerHTML = `
+      <div class="stat-card info"><div class="value">${stats.count}</div><div class="label">Backups</div></div>
+      <div class="stat-card"><div class="value">${stats.totalSizeFormatted}</div><div class="label">Total Size</div></div>
+      <div class="stat-card"><div class="value">${stats.dbSizeFormatted}</div><div class="label">Database Size</div></div>
+      <div class="stat-card success"><div class="value">${stats.latestBackup ? formatDate(stats.latestBackup.createdAt) : 'Never'}</div><div class="label">Last Backup</div></div>
+    `;
+
+    const tbody = document.querySelector('#backups-table tbody');
+    tbody.innerHTML = backups.length === 0 ? '<tr><td colspan="5">No backups yet. Create one above.</td></tr>' :
+      backups.map(b => `<tr>
+        <td style="font-size:0.8125rem">${b.filename}</td>
+        <td>${b.label || '-'}</td>
+        <td>${b.sizeFormatted}</td>
+        <td>${formatDate(b.createdAt)}</td>
+        <td>
+          <a href="/api/settings/backups/${encodeURIComponent(b.filename)}/download" class="btn btn-sm">Download</a>
+          <button class="btn btn-sm btn-primary" onclick="restoreBackup('${b.filename}')">Restore</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteBackup('${b.filename}')">Delete</button>
+        </td>
+      </tr>`).join('');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function createBackup() {
+  const label = document.getElementById('backup-label').value.trim();
+  try {
+    const result = await api('/api/settings/backups', { method: 'POST', body: JSON.stringify({ label }) });
+    toast(`Backup created: ${result.filename}`);
+    document.getElementById('backup-label').value = '';
+    loadBackups();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function restoreBackup(filename) {
+  if (!confirm(`RESTORE database from "${filename}"?\n\nA safety backup will be created first.\nThe application may need to be restarted.`)) return;
+  try {
+    const result = await api(`/api/settings/backups/${encodeURIComponent(filename)}/restore`, { method: 'POST' });
+    toast(result.message, 'info');
+    loadBackups();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function deleteBackup(filename) {
+  if (!confirm(`Delete backup "${filename}"?`)) return;
+  try {
+    await api(`/api/settings/backups/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+    toast('Backup deleted');
+    loadBackups();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
 loadPanels();
 loadAdmins();
 loadSettings();
+loadBackups();

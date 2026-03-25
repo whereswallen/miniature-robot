@@ -41,6 +41,7 @@ const config = Object.freeze({
       .split(',')
       .map((d) => parseInt(d.trim(), 10))
       .filter((d) => !isNaN(d)),
+    backupCronSchedule: process.env.BACKUP_CRON_SCHEDULE || '0 2 * * *',
   },
   db: {
     path: process.env.DB_PATH || './data/access_killer.db',

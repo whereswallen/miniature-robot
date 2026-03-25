@@ -25,9 +25,18 @@
       <button type="submit" class="btn btn-primary btn-sm">Save</button>
     </form>
   </div>
-  <div class="card">
-    <h3>Database</h3>
-    <a href="/api/settings/backup" class="btn btn-outline">Download Backup</a>
+  <div class="card" style="grid-column: 1 / -1">
+    <h3>Backups</h3>
+    <div class="stat-cards" id="backup-stats" style="margin-bottom:1rem"></div>
+    <div class="form-row" style="margin-bottom:1rem">
+      <input type="text" id="backup-label" class="input" placeholder="Backup label (optional)" style="max-width:250px">
+      <button class="btn btn-primary" onclick="createBackup()">Create Backup Now</button>
+      <a href="/api/settings/backup" class="btn btn-outline">Quick Download (live DB)</a>
+    </div>
+    <table class="table" id="backups-table">
+      <thead><tr><th>Filename</th><th>Label</th><th>Size</th><th>Created</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
   </div>
 </div>
 

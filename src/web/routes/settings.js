@@ -86,7 +86,59 @@ router.delete('/admins/:id', (req, res) => {
   }
 });
 
-// Database backup
+// Backups
+const backupService = require('../../services/backupService');
+
+router.get('/backups', (req, res) => {
+  try {
+    const stats = backupService.getBackupStats();
+    const backups = backupService.listBackups();
+    res.json({ stats, backups });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/backups', (req, res) => {
+  try {
+    const { label } = req.body || {};
+    const backup = backupService.createBackup(label || '');
+    res.status(201).json(backup);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/backups/:filename/download', (req, res) => {
+  try {
+    const filePath = backupService.getBackupPath(req.params.filename);
+    if (!filePath) return res.status(404).json({ error: 'Backup not found' });
+    res.setHeader('Content-Disposition', `attachment; filename=${req.params.filename}`);
+    res.sendFile(filePath);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/backups/:filename/restore', (req, res) => {
+  try {
+    const result = backupService.restoreBackup(req.params.filename);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/backups/:filename', (req, res) => {
+  try {
+    backupService.deleteBackup(req.params.filename);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Legacy single-download endpoint (kept for backward compat)
 router.get('/backup', (req, res) => {
   try {
     const dbPath = path.resolve(config.db.path);

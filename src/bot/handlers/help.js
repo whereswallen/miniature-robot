@@ -15,6 +15,9 @@ function register(bot) {
     '/balance <username> - Check subscriber balance',
     '/panels - Panel health status',
     '/genlink <username> - Generate customer link code',
+    '/backup [label] - Create a backup',
+    '/backup list - List all backups',
+    '/backup stats - Backup statistics',
     '/help - Show this message',
   ].join('\n');
 
