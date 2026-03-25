@@ -31,10 +31,11 @@ function register(bot) {
         return;
       }
 
-      await userService.extendUser(username, newExpiry);
+      const result = await userService.extendUser(username, newExpiry);
+      const syncNote = result.pendingSync ? '\n\n⏳ Panel was unreachable — change saved locally and will sync when the panel is back online.' : '';
       await bot.sendMessage(
         msg.chat.id,
-        `Subscription extended for "${sub.customer_name}" (${username}).\nNew expiry: ${newExpiry}`
+        `Subscription extended for "${sub.customer_name}" (${username}).\nNew expiry: ${newExpiry}${syncNote}`
       );
     } catch (err) {
       await bot.sendMessage(msg.chat.id, `Failed to extend: ${err.message}`);

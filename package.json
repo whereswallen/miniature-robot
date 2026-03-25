@@ -1,5 +1,5 @@
 {
-  "name": "iptv-access-killer",
+  "name": "linetrack",
   "version": "1.0.0",
   "description": "IPTV user management system with Telegram bot and Xtream UI integration",
   "main": "src/index.js",

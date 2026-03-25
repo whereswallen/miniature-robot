@@ -42,8 +42,9 @@ function register(bot) {
     }
 
     try {
-      await userService.disableUser(username);
-      await bot.sendMessage(chatId, `ACCESS KILLED for "${username}". User has been disabled on the panel.`);
+      const result = await userService.disableUser(username);
+      const syncNote = result.pendingSync ? '\n\n⏳ Panel was unreachable — change saved locally and will sync when the panel is back online.' : '';
+      await bot.sendMessage(chatId, `ACCESS KILLED for "${username}". User has been disabled.${syncNote}`);
     } catch (err) {
       await bot.sendMessage(chatId, `Failed to kill access: ${err.message}`);
     }

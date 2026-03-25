@@ -4,6 +4,7 @@ const alertService = require('../services/alertService');
 const reminderService = require('../services/reminderService');
 const customerNotification = require('../services/customerNotificationService');
 const backupService = require('../services/backupService');
+const syncService = require('../services/syncService');
 
 function start(adminBot) {
   cron.schedule(config.scheduler.cronSchedule, async () => {
@@ -56,6 +57,13 @@ function start(adminBot) {
         }
       } else {
         console.log('No upcoming expirations.');
+      }
+      // Attempt to sync pending changes to panels
+      const pendingCount = syncService.getPendingCount();
+      if (pendingCount > 0) {
+        console.log(`Attempting to sync ${pendingCount} pending change(s)...`);
+        const syncResult = await syncService.syncAll();
+        console.log(`Sync complete: ${syncResult.synced} synced, ${syncResult.failed} failed.`);
       }
     } catch (err) {
       console.error('Scheduler error:', err.message);

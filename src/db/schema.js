@@ -82,6 +82,18 @@ function initialize() {
       value TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS pending_sync (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      subscriber_id   INTEGER NOT NULL REFERENCES subscribers(id),
+      action          TEXT    NOT NULL,
+      payload         TEXT,
+      created_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+      status          TEXT    NOT NULL DEFAULT 'pending',
+      error           TEXT,
+      synced_at       TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pending_sync_status ON pending_sync(status);
     CREATE INDEX IF NOT EXISTS idx_subscribers_status ON subscribers(status);
     CREATE INDEX IF NOT EXISTS idx_subscribers_expiry ON subscribers(expiry_date);
     CREATE INDEX IF NOT EXISTS idx_subscribers_xtream ON subscribers(xtream_username);

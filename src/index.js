@@ -44,7 +44,7 @@ async function main() {
   // Start scheduled tasks
   scheduler.start(adminBot);
 
-  console.log('IPTV Access Killer is running.');
+  console.log('LineTrack is running.');
 }
 
 main().catch((err) => {

@@ -25,7 +25,7 @@ function generateInvoicePDF(paymentId) {
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
 
   // Header
-  doc.fontSize(24).fillColor('#ef4444').text('IPTV Access Killer', { align: 'center' });
+  doc.fontSize(24).fillColor('#ef4444').text('LineTrack', { align: 'center' });
   doc.moveDown(0.5);
   doc.fontSize(16).fillColor('#333').text('INVOICE', { align: 'center' });
   doc.moveDown(1);

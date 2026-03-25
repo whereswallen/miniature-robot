@@ -1,5 +1,6 @@
 const db = require('../db/connection');
 const panelService = require('./panelService');
+const syncService = require('./syncService');
 
 // --- Prepared statements ---
 
@@ -131,50 +132,101 @@ async function createUser({ customerName, phone, telegramUser, xtreamUsername, x
   return { id: result.lastInsertRowid, apiResult };
 }
 
-async function disableUser(xtreamUsername) {
+async function disableUser(xtreamUsername, { localOnly = false } = {}) {
   const sub = findByXtreamUsername.get({ xtreamUsername });
   if (!sub) throw new Error(`Subscriber "${xtreamUsername}" not found.`);
 
-  const client = panelService.getClientForSubscriber(sub.panel_id);
-  await client.disableUser(xtreamUsername);
+  let pendingSync = false;
+
+  if (localOnly) {
+    syncService.addPendingChange(sub.id, 'disable', {});
+    pendingSync = true;
+  } else {
+    try {
+      const client = panelService.getClientForSubscriber(sub.panel_id);
+      await client.disableUser(xtreamUsername);
+    } catch (err) {
+      if (syncService.isConnectionError(err)) {
+        syncService.addPendingChange(sub.id, 'disable', {});
+        pendingSync = true;
+      } else {
+        throw err;
+      }
+    }
+  }
+
   updateStatus.run({ status: 'disabled', xtreamUsername });
-  logAudit('disable', sub.id, { xtreamUsername });
+  logAudit('disable', sub.id, { xtreamUsername, localOnly: pendingSync });
 
-  return sub;
+  return { ...sub, pendingSync };
 }
 
-async function disableUserById(id) {
+async function disableUserById(id, opts) {
   const sub = findById.get({ id });
   if (!sub) throw new Error('Subscriber not found.');
-  return disableUser(sub.xtream_username);
+  return disableUser(sub.xtream_username, opts);
 }
 
-async function enableUser(xtreamUsername) {
+async function enableUser(xtreamUsername, { localOnly = false } = {}) {
   const sub = findByXtreamUsername.get({ xtreamUsername });
   if (!sub) throw new Error(`Subscriber "${xtreamUsername}" not found.`);
 
-  const client = panelService.getClientForSubscriber(sub.panel_id);
-  await client.enableUser(xtreamUsername);
+  let pendingSync = false;
+
+  if (localOnly) {
+    syncService.addPendingChange(sub.id, 'enable', {});
+    pendingSync = true;
+  } else {
+    try {
+      const client = panelService.getClientForSubscriber(sub.panel_id);
+      await client.enableUser(xtreamUsername);
+    } catch (err) {
+      if (syncService.isConnectionError(err)) {
+        syncService.addPendingChange(sub.id, 'enable', {});
+        pendingSync = true;
+      } else {
+        throw err;
+      }
+    }
+  }
+
   updateStatus.run({ status: 'active', xtreamUsername });
-  logAudit('enable', sub.id, { xtreamUsername });
+  logAudit('enable', sub.id, { xtreamUsername, localOnly: pendingSync });
 
-  return sub;
+  return { ...sub, pendingSync };
 }
 
-async function enableUserById(id) {
+async function enableUserById(id, opts) {
   const sub = findById.get({ id });
   if (!sub) throw new Error('Subscriber not found.');
-  return enableUser(sub.xtream_username);
+  return enableUser(sub.xtream_username, opts);
 }
 
-async function extendUser(xtreamUsername, newExpiryDate) {
+async function extendUser(xtreamUsername, newExpiryDate, { localOnly = false } = {}) {
   const sub = findByXtreamUsername.get({ xtreamUsername });
   if (!sub) throw new Error(`Subscriber "${xtreamUsername}" not found.`);
 
-  const client = panelService.getClientForSubscriber(sub.panel_id);
-  await client.extendUser(xtreamUsername, newExpiryDate);
+  let pendingSync = false;
+
+  if (localOnly) {
+    syncService.addPendingChange(sub.id, 'extend', { newExpiryDate });
+    pendingSync = true;
+  } else {
+    try {
+      const client = panelService.getClientForSubscriber(sub.panel_id);
+      await client.extendUser(xtreamUsername, newExpiryDate);
+    } catch (err) {
+      if (syncService.isConnectionError(err)) {
+        syncService.addPendingChange(sub.id, 'extend', { newExpiryDate });
+        pendingSync = true;
+      } else {
+        throw err;
+      }
+    }
+  }
+
   updateExpiry.run({ expiryDate: newExpiryDate, xtreamUsername });
-  logAudit('extend', sub.id, { xtreamUsername, newExpiryDate });
+  logAudit('extend', sub.id, { xtreamUsername, newExpiryDate, localOnly: pendingSync });
 
   // Reset reminders so they fire again for new expiry
   try {
@@ -182,13 +234,13 @@ async function extendUser(xtreamUsername, newExpiryDate) {
     reminderService.resetRemindersForSubscriber(sub.id);
   } catch (_) { /* reminderService may not be loaded yet */ }
 
-  return { ...sub, expiry_date: newExpiryDate };
+  return { ...sub, expiry_date: newExpiryDate, pendingSync };
 }
 
-async function extendUserById(id, newExpiryDate) {
+async function extendUserById(id, newExpiryDate, opts) {
   const sub = findById.get({ id });
   if (!sub) throw new Error('Subscriber not found.');
-  return extendUser(sub.xtream_username, newExpiryDate);
+  return extendUser(sub.xtream_username, newExpiryDate, opts);
 }
 
 function updateSubscriberInfo(id, { customerName, phone, telegramUser, pkg, notes, costPerLine }) {

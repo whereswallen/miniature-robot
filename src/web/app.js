@@ -9,6 +9,7 @@ const panelRoutes = require('./routes/panels');
 const reportRoutes = require('./routes/reports');
 const bulkRoutes = require('./routes/bulk');
 const settingsRoutes = require('./routes/settings');
+const syncRoutes = require('./routes/sync');
 const pageRoutes = require('./routes/pages');
 
 function createApp() {
@@ -30,6 +31,7 @@ function createApp() {
   app.use('/api/reports', reportRoutes);
   app.use('/api/bulk', bulkRoutes);
   app.use('/api/settings', settingsRoutes);
+  app.use('/api/sync', syncRoutes);
 
   // Page routes
   app.use('/', pageRoutes);

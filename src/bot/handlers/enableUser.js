@@ -21,10 +21,11 @@ function register(bot) {
         return;
       }
 
-      await userService.enableUser(username);
+      const result = await userService.enableUser(username);
+      const syncNote = result.pendingSync ? '\n\n⏳ Panel was unreachable — change saved locally and will sync when the panel is back online.' : '';
       await bot.sendMessage(
         msg.chat.id,
-        `Access RESTORED for "${sub.customer_name}" (${username}).`
+        `Access RESTORED for "${sub.customer_name}" (${username}).${syncNote}`
       );
     } catch (err) {
       await bot.sendMessage(msg.chat.id, `Failed to enable: ${err.message}`);

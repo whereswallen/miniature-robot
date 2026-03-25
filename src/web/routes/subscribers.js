@@ -53,8 +53,8 @@ router.put('/:id', (req, res) => {
 
 router.post('/:id/kill', async (req, res) => {
   try {
-    await userService.disableUserById(parseInt(req.params.id, 10));
-    res.json({ ok: true, message: 'Access killed' });
+    const result = await userService.disableUserById(parseInt(req.params.id, 10));
+    res.json({ ok: true, message: 'Access killed', pendingSync: result?.pendingSync || false });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -62,8 +62,8 @@ router.post('/:id/kill', async (req, res) => {
 
 router.post('/:id/enable', async (req, res) => {
   try {
-    await userService.enableUserById(parseInt(req.params.id, 10));
-    res.json({ ok: true, message: 'Access restored' });
+    const result = await userService.enableUserById(parseInt(req.params.id, 10));
+    res.json({ ok: true, message: 'Access restored', pendingSync: result?.pendingSync || false });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -86,8 +86,8 @@ router.post('/:id/extend', async (req, res) => {
       return res.status(400).json({ error: 'Provide days or date' });
     }
 
-    await userService.extendUserById(parseInt(req.params.id, 10), newExpiry);
-    res.json({ ok: true, newExpiry });
+    const result = await userService.extendUserById(parseInt(req.params.id, 10), newExpiry);
+    res.json({ ok: true, newExpiry, pendingSync: result?.pendingSync || false });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
