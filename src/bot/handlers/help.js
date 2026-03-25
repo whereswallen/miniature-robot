@@ -11,6 +11,10 @@ function register(bot) {
     '/expiring [days] - List users expiring soon (default 7)',
     '/list - List all active subscribers',
     '/stats - Show dashboard statistics',
+    '/payment <username> <amount> [method] - Record payment',
+    '/balance <username> - Check subscriber balance',
+    '/panels - Panel health status',
+    '/genlink <username> - Generate customer link code',
     '/help - Show this message',
   ].join('\n');
 

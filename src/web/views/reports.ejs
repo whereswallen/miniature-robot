@@ -1,0 +1,49 @@
+<%- include('layout', { title: 'Reports', page: 'reports', body: `
+<h1>Financial Reports</h1>
+<div class="filters-row">
+  <input type="date" id="start-date" class="input">
+  <input type="date" id="end-date" class="input">
+  <select id="group-by" class="input">
+    <option value="month">Monthly</option>
+    <option value="week">Weekly</option>
+    <option value="day">Daily</option>
+    <option value="year">Yearly</option>
+  </select>
+  <button class="btn btn-primary" onclick="loadReports()">Generate</button>
+</div>
+<div class="tabs">
+  <button class="tab active" onclick="switchTab(this, 'revenue-tab')">Revenue</button>
+  <button class="tab" onclick="switchTab(this, 'methods-tab')">Payment Methods</button>
+  <button class="tab" onclick="switchTab(this, 'profit-tab')">Profit</button>
+  <button class="tab" onclick="switchTab(this, 'outstanding-tab')">Outstanding</button>
+</div>
+<div id="revenue-tab" class="tab-content active">
+  <div class="chart-card"><canvas id="revenue-chart"></canvas></div>
+  <table class="table" id="revenue-table">
+    <thead><tr><th>Period</th><th>Revenue</th><th>Payments</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+<div id="methods-tab" class="tab-content">
+  <div class="charts-row">
+    <div class="chart-card"><canvas id="methods-chart"></canvas></div>
+    <div class="card"><table class="table" id="methods-table">
+      <thead><tr><th>Method</th><th>Total</th><th>Count</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+</div>
+<div id="profit-tab" class="tab-content">
+  <table class="table" id="profit-table">
+    <thead><tr><th>Customer</th><th>Username</th><th>Revenue</th><th>Cost</th><th>Profit</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+<div id="outstanding-tab" class="tab-content">
+  <table class="table" id="outstanding-table">
+    <thead><tr><th>Customer</th><th>Username</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+<script src="/js/reports.js"></script>
+` }) %>

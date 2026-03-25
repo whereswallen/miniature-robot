@@ -1,0 +1,7 @@
+<header class="header">
+  <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+  <div class="header-right">
+    <span class="admin-name"><%= typeof admin !== 'undefined' ? admin.username : '' %></span>
+    <button class="btn btn-sm btn-outline" onclick="logout()">Logout</button>
+  </div>
+</header>

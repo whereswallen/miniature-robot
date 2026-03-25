@@ -1,0 +1,38 @@
+<%- include('layout', { title: 'Bulk Operations', page: 'bulk', body: `
+<h1>Bulk Operations</h1>
+<div class="card">
+  <h3>Import Subscribers</h3>
+  <p>Upload a CSV or XLSX file to import subscribers. Perfect for migrating from Microsoft Access.</p>
+  <div class="form-row">
+    <input type="file" id="import-file" accept=".csv,.xlsx,.xls" class="input">
+    <button class="btn btn-primary" onclick="previewImport()">Preview Import</button>
+    <a href="/api/bulk/export/template" class="btn btn-outline">Download Template</a>
+  </div>
+  <div id="import-preview" style="display:none">
+    <div id="import-stats" class="stat-cards"></div>
+    <div id="import-errors"></div>
+    <table class="table" id="preview-table">
+      <thead><tr><th>Name</th><th>Username</th><th>Package</th><th>Expiry</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="form-row">
+      <select id="import-panel" class="input"><option value="">No Panel</option></select>
+      <button class="btn btn-success" onclick="executeImport()">Confirm Import</button>
+    </div>
+  </div>
+</div>
+<div class="card">
+  <h3>Export Data</h3>
+  <div class="form-row">
+    <select id="export-status" class="input">
+      <option value="all">All Subscribers</option>
+      <option value="active">Active Only</option>
+      <option value="disabled">Disabled Only</option>
+      <option value="expired">Expired Only</option>
+    </select>
+    <button class="btn btn-primary" onclick="exportSubscribers()">Export Subscribers CSV</button>
+    <button class="btn btn-outline" onclick="exportPayments()">Export Payments CSV</button>
+  </div>
+</div>
+<script src="/js/bulk.js"></script>
+` }) %>

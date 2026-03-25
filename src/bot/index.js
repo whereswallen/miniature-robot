@@ -10,6 +10,10 @@ const addUserHandler = require('./handlers/addUser');
 const killUserHandler = require('./handlers/killUser');
 const enableUserHandler = require('./handlers/enableUser');
 const extendHandler = require('./handlers/extend');
+const genlinkHandler = require('./handlers/genlink');
+const paymentHandler = require('./handlers/payment');
+const balanceHandler = require('./handlers/balance');
+const panelsHandler = require('./handlers/panels');
 
 function createBot() {
   const bot = new TelegramBot(config.telegram.token, { polling: true });
@@ -23,6 +27,10 @@ function createBot() {
   killUserHandler.register(bot);
   enableUserHandler.register(bot);
   extendHandler.register(bot);
+  genlinkHandler.register(bot);
+  paymentHandler.register(bot);
+  balanceHandler.register(bot);
+  panelsHandler.register(bot);
   // listAll registered last — its /list regex could match /listexpiring
   listAllHandler.register(bot);
 
@@ -38,13 +46,17 @@ function createBot() {
     { command: 'expiring', description: 'List expiring subscribers' },
     { command: 'list', description: 'List all active subscribers' },
     { command: 'stats', description: 'Show dashboard statistics' },
+    { command: 'payment', description: 'Record a payment' },
+    { command: 'balance', description: 'Check subscriber balance' },
+    { command: 'panels', description: 'Panel health status' },
+    { command: 'genlink', description: 'Generate customer link code' },
   ]);
 
   bot.on('polling_error', (err) => {
     console.error('Telegram polling error:', err.message);
   });
 
-  console.log('Telegram bot started.');
+  console.log('Admin Telegram bot started.');
   return bot;
 }
 

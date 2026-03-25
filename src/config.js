@@ -2,9 +2,6 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
 const required = [
-  'XTREAM_PANEL_URL',
-  'XTREAM_RESELLER_USERNAME',
-  'XTREAM_RESELLER_PASSWORD',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_AUTHORIZED_CHAT_IDS',
 ];
@@ -18,9 +15,9 @@ if (missing.length > 0) {
 
 const config = Object.freeze({
   xtream: {
-    panelUrl: process.env.XTREAM_PANEL_URL.replace(/\/+$/, ''),
-    username: process.env.XTREAM_RESELLER_USERNAME,
-    password: process.env.XTREAM_RESELLER_PASSWORD,
+    panelUrl: (process.env.XTREAM_PANEL_URL || '').replace(/\/+$/, '') || null,
+    username: process.env.XTREAM_RESELLER_USERNAME || null,
+    password: process.env.XTREAM_RESELLER_PASSWORD || null,
   },
   telegram: {
     token: process.env.TELEGRAM_BOT_TOKEN,
@@ -28,6 +25,15 @@ const config = Object.freeze({
       .split(',')
       .map((id) => id.trim())
       .filter(Boolean),
+  },
+  customerBot: {
+    token: process.env.CUSTOMER_BOT_TOKEN || null,
+  },
+  web: {
+    port: parseInt(process.env.WEB_PORT, 10) || 3000,
+    secret: process.env.WEB_SECRET || 'change-me-in-production',
+    adminUser: process.env.WEB_ADMIN_USER || 'admin',
+    adminPass: process.env.WEB_ADMIN_PASS || 'admin',
   },
   scheduler: {
     cronSchedule: process.env.ALERT_CRON_SCHEDULE || '0 9 * * *',
