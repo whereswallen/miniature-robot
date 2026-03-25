@@ -1,0 +1,53 @@
+const { withAuth } = require('../middleware/auth');
+const userService = require('../../services/userService');
+
+const pendingConfirm = new Map();
+
+function register(bot) {
+  bot.onText(/\/kill(?:\s+(.+))?/, withAuth(bot, async (msg, match) => {
+    const username = match[1]?.trim();
+    if (!username) {
+      await bot.sendMessage(msg.chat.id, 'Usage: /kill <xtream_username>');
+      return;
+    }
+
+    const sub = userService.getUserByUsername(username);
+    if (!sub) {
+      await bot.sendMessage(msg.chat.id, `Subscriber "${username}" not found.`);
+      return;
+    }
+
+    if (sub.status === 'disabled') {
+      await bot.sendMessage(msg.chat.id, `"${username}" is already disabled.`);
+      return;
+    }
+
+    pendingConfirm.set(msg.chat.id, username);
+    await bot.sendMessage(
+      msg.chat.id,
+      `Are you sure you want to KILL access for "${sub.customer_name}" (${username})?\n\nType YES to confirm or anything else to cancel.`
+    );
+  }));
+
+  bot.on('message', withAuth(bot, async (msg) => {
+    const chatId = msg.chat.id;
+    if (!pendingConfirm.has(chatId)) return;
+
+    const username = pendingConfirm.get(chatId);
+    pendingConfirm.delete(chatId);
+
+    if (msg.text?.toUpperCase() !== 'YES') {
+      await bot.sendMessage(chatId, 'Cancelled.');
+      return;
+    }
+
+    try {
+      await userService.disableUser(username);
+      await bot.sendMessage(chatId, `ACCESS KILLED for "${username}". User has been disabled on the panel.`);
+    } catch (err) {
+      await bot.sendMessage(chatId, `Failed to kill access: ${err.message}`);
+    }
+  }));
+}
+
+module.exports = { register };
