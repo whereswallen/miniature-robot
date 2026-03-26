@@ -7,7 +7,7 @@ const findPayments = db.prepare(`
   ORDER BY ph.payment_date DESC LIMIT 10
 `);
 
-function register(bot) {
+function register(bot, tenantId) {
   bot.onText(/\/payments/, async (msg) => {
     const payments = findPayments.all({ chatId: String(msg.chat.id) });
 

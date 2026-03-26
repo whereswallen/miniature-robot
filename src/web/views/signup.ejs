@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - LineTrack</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="login-page">
+  <div class="login-card" style="max-width:480px">
+    <h1>LineTrack</h1>
+    <p class="login-subtitle">Create your reseller account</p>
+    <form id="signup-form">
+      <div class="form-group">
+        <label for="companyName">Company Name</label>
+        <input type="text" id="companyName" name="companyName" required>
+      </div>
+      <div class="form-group">
+        <label for="ownerName">Your Name</label>
+        <input type="text" id="ownerName" name="ownerName" required>
+      </div>
+      <div class="form-group">
+        <label for="ownerEmail">Email</label>
+        <input type="email" id="ownerEmail" name="ownerEmail" required>
+      </div>
+      <div class="form-group">
+        <label for="username">Admin Username</label>
+        <input type="text" id="username" name="username" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required minlength="6">
+      </div>
+      <div class="form-group">
+        <label for="plan">Plan</label>
+        <select id="plan" name="plan">
+          <option value="basic">Basic - $15/mo (50 subscribers)</option>
+          <option value="pro">Pro - $30/mo (200 subscribers)</option>
+          <option value="enterprise">Enterprise - $60/mo (Unlimited)</option>
+        </select>
+      </div>
+      <div id="signup-error" class="error-msg" style="display:none"></div>
+      <button type="submit" class="btn btn-primary btn-block">Start 14-Day Free Trial</button>
+    </form>
+    <p style="text-align:center;margin-top:16px"><a href="/login">Already have an account? Sign in</a></p>
+  </div>
+  <script>
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('signup-error');
+      errEl.style.display = 'none';
+      try {
+        const body = {
+          companyName: document.getElementById('companyName').value,
+          ownerName: document.getElementById('ownerName').value,
+          ownerEmail: document.getElementById('ownerEmail').value,
+          username: document.getElementById('username').value,
+          password: document.getElementById('password').value,
+          plan: document.getElementById('plan').value,
+        };
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        window.location.href = '/';
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

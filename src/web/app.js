@@ -10,6 +10,7 @@ const reportRoutes = require('./routes/reports');
 const bulkRoutes = require('./routes/bulk');
 const settingsRoutes = require('./routes/settings');
 const syncRoutes = require('./routes/sync');
+const platformRoutes = require('./routes/platform');
 const pageRoutes = require('./routes/pages');
 
 function createApp() {
@@ -32,6 +33,7 @@ function createApp() {
   app.use('/api/bulk', bulkRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/sync', syncRoutes);
+  app.use('/api/platform', platformRoutes);
 
   // Page routes
   app.use('/', pageRoutes);

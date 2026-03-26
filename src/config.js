@@ -1,17 +1,8 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
-const required = [
-  'TELEGRAM_BOT_TOKEN',
-  'TELEGRAM_AUTHORIZED_CHAT_IDS',
-];
-
-const missing = required.filter((key) => !process.env[key]);
-if (missing.length > 0) {
-  console.error(`Missing required environment variables: ${missing.join(', ')}`);
-  console.error('Copy .env.example to .env and fill in your values.');
-  process.exit(1);
-}
+// Telegram env vars are now optional — bot tokens come from DB per tenant
+// Only WEB_SECRET is truly required for multi-tenant mode
 
 const config = Object.freeze({
   xtream: {
@@ -20,11 +11,10 @@ const config = Object.freeze({
     password: process.env.XTREAM_RESELLER_PASSWORD || null,
   },
   telegram: {
-    token: process.env.TELEGRAM_BOT_TOKEN,
+    token: process.env.TELEGRAM_BOT_TOKEN || null,
     authorizedChatIds: process.env.TELEGRAM_AUTHORIZED_CHAT_IDS
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean),
+      ? process.env.TELEGRAM_AUTHORIZED_CHAT_IDS.split(',').map((id) => id.trim()).filter(Boolean)
+      : [],
   },
   customerBot: {
     token: process.env.CUSTOMER_BOT_TOKEN || null,
@@ -44,7 +34,11 @@ const config = Object.freeze({
     backupCronSchedule: process.env.BACKUP_CRON_SCHEDULE || '0 2 * * *',
   },
   db: {
-    path: process.env.DB_PATH || './data/access_killer.db',
+    path: process.env.DB_PATH || './data/linetrack.db',
+  },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || null,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || null,
   },
 });
 

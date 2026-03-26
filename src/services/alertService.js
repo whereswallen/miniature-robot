@@ -1,10 +1,10 @@
 const userService = require('./userService');
 const config = require('../config');
 
-function buildExpiryAlert() {
+function buildExpiryAlert(tenantId) {
   const dayThresholds = config.scheduler.alertDaysBefore.sort((a, b) => a - b);
   const maxDays = Math.max(...dayThresholds);
-  const allExpiring = userService.getExpiringUsers(maxDays);
+  const allExpiring = userService.getExpiringUsers(tenantId, maxDays);
 
   if (allExpiring.length === 0) return null;
 
@@ -41,8 +41,8 @@ function buildExpiryAlert() {
   return `--- Expiry Alert ---\n\n${sections.join('\n\n')}`;
 }
 
-function runDailyMaintenance() {
-  const expiredCount = userService.syncExpiredStatus();
+function runDailyMaintenance(tenantId) {
+  const expiredCount = userService.syncExpiredStatus(tenantId);
   return expiredCount;
 }
 

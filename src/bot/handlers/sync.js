@@ -1,12 +1,12 @@
 const { withAuth } = require('../middleware/auth');
 const syncService = require('../../services/syncService');
 
-function register(bot) {
-  bot.onText(/\/sync(?:\s+(.+))?/, withAuth(bot, async (msg, match) => {
+function register(bot, tenantId) {
+  bot.onText(/\/sync(?:\s+(.+))?/, withAuth(bot, tenantId, async (msg, match) => {
     const arg = match[1]?.trim();
 
     if (arg === 'status') {
-      const status = syncService.getStatus();
+      const status = syncService.getStatus(tenantId);
       const lines = [`Pending: ${status.pending}`, `Failed: ${status.failed}`];
 
       if (status.items.length > 0) {
@@ -24,7 +24,7 @@ function register(bot) {
     }
 
     // Default: show count then sync
-    const pendingCount = syncService.getPendingCount();
+    const pendingCount = syncService.getPendingCount(tenantId);
     if (pendingCount === 0) {
       await bot.sendMessage(msg.chat.id, 'No pending changes to sync.');
       return;
@@ -32,7 +32,7 @@ function register(bot) {
 
     await bot.sendMessage(msg.chat.id, `Syncing ${pendingCount} pending change(s)...`);
 
-    const result = await syncService.syncAll();
+    const result = await syncService.syncAll(tenantId);
     const lines = [`Synced: ${result.synced}`, `Failed: ${result.failed}`];
 
     if (result.errors.length > 0) {

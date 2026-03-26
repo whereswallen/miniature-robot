@@ -4,28 +4,28 @@ const panelService = require('./panelService');
 // --- Prepared statements ---
 
 const insertPending = db.prepare(`
-  INSERT INTO pending_sync (subscriber_id, action, payload)
-  VALUES (@subscriberId, @action, @payload)
+  INSERT INTO pending_sync (tenant_id, subscriber_id, action, payload)
+  VALUES (@tenantId, @subscriberId, @action, @payload)
 `);
 
 const getPending = db.prepare(`
-  SELECT ps.*, s.xtream_username, s.panel_id, s.customer_name
+  SELECT ps.*, s.xtream_username, s.panel_id, s.customer_name, s.tenant_id
   FROM pending_sync ps
   JOIN subscribers s ON ps.subscriber_id = s.id
-  WHERE ps.status = 'pending'
+  WHERE ps.status = 'pending' AND ps.tenant_id = @tenantId
   ORDER BY ps.created_at ASC
 `);
 
 const getPendingCountStmt = db.prepare(`
-  SELECT COUNT(*) as count FROM pending_sync WHERE status = 'pending'
+  SELECT COUNT(*) as count FROM pending_sync WHERE status = 'pending' AND tenant_id = @tenantId
 `);
 
 const getFailedCountStmt = db.prepare(`
-  SELECT COUNT(*) as count FROM pending_sync WHERE status = 'failed'
+  SELECT COUNT(*) as count FROM pending_sync WHERE status = 'failed' AND tenant_id = @tenantId
 `);
 
 const getPendingForSub = db.prepare(`
-  SELECT * FROM pending_sync WHERE subscriber_id = @subscriberId AND status = 'pending'
+  SELECT * FROM pending_sync WHERE subscriber_id = @subscriberId AND status = 'pending' AND tenant_id = @tenantId
   ORDER BY created_at ASC
 `);
 
@@ -42,54 +42,55 @@ const resetToRetry = db.prepare(`
 `);
 
 const clearSyncedStmt = db.prepare(`
-  DELETE FROM pending_sync WHERE status = 'synced'
+  DELETE FROM pending_sync WHERE status = 'synced' AND tenant_id = @tenantId
 `);
 
 const getPendingByIdStmt = db.prepare(`
-  SELECT ps.*, s.xtream_username, s.panel_id, s.customer_name
+  SELECT ps.*, s.xtream_username, s.panel_id, s.customer_name, s.tenant_id
   FROM pending_sync ps
   JOIN subscribers s ON ps.subscriber_id = s.id
   WHERE ps.id = @id
 `);
 
 const getAllPendingAndFailed = db.prepare(`
-  SELECT ps.*, s.xtream_username, s.panel_id, s.customer_name
+  SELECT ps.*, s.xtream_username, s.panel_id, s.customer_name, s.tenant_id
   FROM pending_sync ps
   JOIN subscribers s ON ps.subscriber_id = s.id
-  WHERE ps.status IN ('pending', 'failed')
+  WHERE ps.status IN ('pending', 'failed') AND ps.tenant_id = @tenantId
   ORDER BY ps.created_at ASC
 `);
 
 // --- Service methods ---
 
-function addPendingChange(subscriberId, action, payload = {}) {
+function addPendingChange(tenantId, subscriberId, action, payload = {}) {
   return insertPending.run({
+    tenantId,
     subscriberId,
     action,
     payload: JSON.stringify(payload),
   });
 }
 
-function getPendingChanges() {
-  return getPending.all();
+function getPendingChanges(tenantId) {
+  return getPending.all({ tenantId });
 }
 
-function getPendingCount() {
-  return getPendingCountStmt.get().count;
+function getPendingCount(tenantId) {
+  return getPendingCountStmt.get({ tenantId }).count;
 }
 
-function getFailedCount() {
-  return getFailedCountStmt.get().count;
+function getFailedCount(tenantId) {
+  return getFailedCountStmt.get({ tenantId }).count;
 }
 
-function getPendingForSubscriber(subscriberId) {
-  return getPendingForSub.all({ subscriberId });
+function getPendingForSubscriber(tenantId, subscriberId) {
+  return getPendingForSub.all({ tenantId, subscriberId });
 }
 
-function getStatus() {
-  const pending = getPendingCount();
-  const failed = getFailedCount();
-  const items = getAllPendingAndFailed.all();
+function getStatus(tenantId) {
+  const pending = getPendingCount(tenantId);
+  const failed = getFailedCount(tenantId);
+  const items = getAllPendingAndFailed.all({ tenantId });
   return { pending, failed, items };
 }
 
@@ -98,7 +99,7 @@ async function syncOne(pendingId) {
   if (!item) throw new Error(`Pending sync item ${pendingId} not found.`);
 
   try {
-    const client = panelService.getClientForSubscriber(item.panel_id);
+    const client = panelService.getClientForSubscriber(item.tenant_id, item.panel_id);
     const payload = item.payload ? JSON.parse(item.payload) : {};
 
     switch (item.action) {
@@ -123,13 +124,13 @@ async function syncOne(pendingId) {
   }
 }
 
-async function syncAll() {
-  const items = getPending.all();
+async function syncAll(tenantId) {
+  const items = getPending.all({ tenantId });
   const results = { synced: 0, failed: 0, errors: [] };
 
   for (const item of items) {
     try {
-      const client = panelService.getClientForSubscriber(item.panel_id);
+      const client = panelService.getClientForSubscriber(item.tenant_id, item.panel_id);
       const payload = item.payload ? JSON.parse(item.payload) : {};
 
       switch (item.action) {
@@ -162,8 +163,8 @@ function retryFailed(pendingId) {
   resetToRetry.run({ id: pendingId });
 }
 
-function clearSynced() {
-  return clearSyncedStmt.run().changes;
+function clearSynced(tenantId) {
+  return clearSyncedStmt.run({ tenantId }).changes;
 }
 
 function isConnectionError(err) {

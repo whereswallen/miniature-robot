@@ -10,7 +10,7 @@ const findCustomer = db.prepare(`
 // Rate limiting: max 3 support messages per hour per chat
 const rateLimit = new Map();
 
-function register(bot) {
+function register(bot, tenantId) {
   // We need access to the admin bot to forward messages
   let adminBot = null;
 

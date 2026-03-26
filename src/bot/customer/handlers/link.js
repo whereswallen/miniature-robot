@@ -4,7 +4,7 @@ const findByCode = db.prepare('SELECT cl.*, s.customer_name FROM customer_links 
 const updateLink = db.prepare('UPDATE customer_links SET telegram_chat_id = @chatId, telegram_username = @username, link_code = NULL, linked_at = datetime(\'now\') WHERE id = @id');
 const findByChatId = db.prepare('SELECT cl.*, s.customer_name FROM customer_links cl JOIN subscribers s ON cl.subscriber_id = s.id WHERE cl.telegram_chat_id = @chatId');
 
-function register(bot) {
+function register(bot, tenantId) {
   bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
     const code = match[1]?.trim();

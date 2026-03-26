@@ -8,7 +8,7 @@ router.use(requireAuthAPI);
 router.get('/', (req, res) => {
   try {
     const { page, limit, subscriberId } = req.query;
-    const result = financialService.getAllPayments({
+    const result = financialService.getAllPayments(req.tenantId, {
       page: parseInt(page, 10) || 1,
       limit: parseInt(limit, 10) || 25,
       subscriberId: subscriberId ? parseInt(subscriberId, 10) : undefined,
@@ -21,7 +21,7 @@ router.get('/', (req, res) => {
 
 router.get('/subscriber/:id', (req, res) => {
   try {
-    const payments = financialService.getPaymentHistory(parseInt(req.params.id, 10));
+    const payments = financialService.getPaymentHistory(req.tenantId, parseInt(req.params.id, 10));
     res.json(payments);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -30,7 +30,7 @@ router.get('/subscriber/:id', (req, res) => {
 
 router.get('/outstanding', (req, res) => {
   try {
-    res.json(financialService.getOutstandingBalances());
+    res.json(financialService.getOutstandingBalances(req.tenantId));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -40,7 +40,7 @@ router.post('/', (req, res) => {
   try {
     const { subscriberId, amount, currency, method, notes } = req.body;
     if (!subscriberId || !amount) return res.status(400).json({ error: 'subscriberId and amount required' });
-    financialService.recordPayment(parseInt(subscriberId, 10), { amount: parseFloat(amount), currency, method, notes });
+    financialService.recordPayment(req.tenantId, parseInt(subscriberId, 10), { amount: parseFloat(amount), currency, method, notes });
     res.status(201).json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -51,7 +51,7 @@ router.post('/credit', (req, res) => {
   try {
     const { subscriberId, amount, notes } = req.body;
     if (!subscriberId || !amount) return res.status(400).json({ error: 'subscriberId and amount required' });
-    financialService.addCredit(parseInt(subscriberId, 10), parseFloat(amount), notes);
+    financialService.addCredit(req.tenantId, parseInt(subscriberId, 10), parseFloat(amount), notes);
     res.status(201).json({ ok: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -60,7 +60,7 @@ router.post('/credit', (req, res) => {
 
 router.get('/invoice/:id', (req, res) => {
   try {
-    const data = financialService.generateInvoiceData(parseInt(req.params.id, 10));
+    const data = financialService.generateInvoiceData(req.tenantId, parseInt(req.params.id, 10));
     res.json(data);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -70,7 +70,7 @@ router.get('/invoice/:id', (req, res) => {
 router.get('/invoice/:id/download', (req, res) => {
   try {
     const invoiceService = require('../../services/invoiceService');
-    const doc = invoiceService.generateInvoicePDF(parseInt(req.params.id, 10));
+    const doc = invoiceService.generateInvoicePDF(req.tenantId, parseInt(req.params.id, 10));
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename=invoice-${req.params.id}.pdf`);
     doc.pipe(res);

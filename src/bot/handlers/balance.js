@@ -1,8 +1,8 @@
 const { withAuth } = require('../middleware/auth');
 const userService = require('../../services/userService');
 
-function register(bot) {
-  bot.onText(/\/balance(?:\s+(.+))?/, withAuth(bot, async (msg, match) => {
+function register(bot, tenantId) {
+  bot.onText(/\/balance(?:\s+(.+))?/, withAuth(bot, tenantId, async (msg, match) => {
     const username = match[1]?.trim();
     if (!username) {
       await bot.sendMessage(msg.chat.id, 'Usage: /balance <username>');
@@ -10,7 +10,7 @@ function register(bot) {
     }
 
     try {
-      const sub = userService.getUserByUsername(username);
+      const sub = userService.getUserByUsername(tenantId, username);
       if (!sub) {
         await bot.sendMessage(msg.chat.id, `Subscriber "${username}" not found.`);
         return;

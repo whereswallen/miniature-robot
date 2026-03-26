@@ -20,8 +20,8 @@ function formatUser(sub) {
   ].filter(Boolean).join('\n');
 }
 
-function register(bot) {
-  bot.onText(/\/info(?:\s+(.+))?/, withAuth(bot, async (msg, match) => {
+function register(bot, tenantId) {
+  bot.onText(/\/info(?:\s+(.+))?/, withAuth(bot, tenantId, async (msg, match) => {
     const query = match[1]?.trim();
     if (!query) {
       await bot.sendMessage(msg.chat.id, 'Usage: /info <username or name>');
@@ -30,14 +30,14 @@ function register(bot) {
 
     try {
       // Try exact xtream username first
-      let sub = userService.getUserByUsername(query);
+      let sub = userService.getUserByUsername(tenantId, query);
       if (sub) {
         await bot.sendMessage(msg.chat.id, formatUser(sub));
         return;
       }
 
       // Search by name
-      const results = userService.searchUsers(query);
+      const results = userService.searchUsers(tenantId, query);
       if (results.length === 0) {
         await bot.sendMessage(msg.chat.id, `No subscriber found for "${query}".`);
         return;

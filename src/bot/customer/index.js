@@ -9,7 +9,7 @@ const expiryHandler = require('./handlers/expiry');
 const paymentsHandler = require('./handlers/payments');
 const supportHandler = require('./handlers/support');
 
-function createCustomerBot() {
+function createCustomerBot(tenantId) {
   if (!config.customerBot.token) {
     console.log('Customer bot token not set. Skipping customer bot.');
     return null;
@@ -19,12 +19,12 @@ function createCustomerBot() {
 
   customerNotification.setBot(bot);
 
-  helpHandler.register(bot);
-  linkHandler.register(bot);
-  statusHandler.register(bot);
-  expiryHandler.register(bot);
-  paymentsHandler.register(bot);
-  supportHandler.register(bot);
+  helpHandler.register(bot, tenantId);
+  linkHandler.register(bot, tenantId);
+  statusHandler.register(bot, tenantId);
+  expiryHandler.register(bot, tenantId);
+  paymentsHandler.register(bot, tenantId);
+  supportHandler.register(bot, tenantId);
 
   bot.setMyCommands([
     { command: 'start', description: 'Link your account' },

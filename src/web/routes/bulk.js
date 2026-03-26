@@ -24,8 +24,7 @@ router.post('/import/preview', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Unsupported file type. Use CSV or XLSX.' });
     }
 
-    const preview = bulkService.previewImport(rows);
-    // Store rows in session-like approach via temp
+    const preview = bulkService.previewImport(req.tenantId, rows);
     req.app.locals.pendingImport = rows;
     res.json(preview);
   } catch (err) {
@@ -39,7 +38,7 @@ router.post('/import/execute', (req, res) => {
     if (!rows) return res.status(400).json({ error: 'No pending import. Upload a file first.' });
 
     const { panelId } = req.body;
-    const result = bulkService.executeImport(rows, panelId ? parseInt(panelId, 10) : null);
+    const result = bulkService.executeImport(req.tenantId, rows, panelId ? parseInt(panelId, 10) : null);
     delete req.app.locals.pendingImport;
     res.json(result);
   } catch (err) {
@@ -50,7 +49,7 @@ router.post('/import/execute', (req, res) => {
 router.get('/export/subscribers', (req, res) => {
   try {
     const { status, panelId } = req.query;
-    const data = bulkService.exportSubscribers({ status, panelId: panelId ? parseInt(panelId, 10) : undefined });
+    const data = bulkService.exportSubscribers(req.tenantId, { status, panelId: panelId ? parseInt(panelId, 10) : undefined });
     if (data.length === 0) return res.status(404).json({ error: 'No data to export' });
 
     const parser = new Parser();
@@ -66,7 +65,7 @@ router.get('/export/subscribers', (req, res) => {
 router.get('/export/payments', (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    const data = bulkService.exportPayments({ startDate, endDate });
+    const data = bulkService.exportPayments(req.tenantId, { startDate, endDate });
     if (data.length === 0) return res.status(404).json({ error: 'No data to export' });
 
     const parser = new Parser();
@@ -89,7 +88,7 @@ router.post('/mass-extend', async (req, res) => {
   try {
     const { ids, days } = req.body;
     if (!ids?.length || !days) return res.status(400).json({ error: 'ids and days required' });
-    const result = await userService.bulkExtend(ids.map(Number), parseInt(days, 10));
+    const result = await userService.bulkExtend(req.tenantId, ids.map(Number), parseInt(days, 10));
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -100,7 +99,7 @@ router.post('/mass-disable', async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids?.length) return res.status(400).json({ error: 'ids required' });
-    const result = await userService.bulkDisable(ids.map(Number));
+    const result = await userService.bulkDisable(req.tenantId, ids.map(Number));
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -111,7 +110,7 @@ router.post('/mass-enable', async (req, res) => {
   try {
     const { ids } = req.body;
     if (!ids?.length) return res.status(400).json({ error: 'ids required' });
-    const result = await userService.bulkEnable(ids.map(Number));
+    const result = await userService.bulkEnable(req.tenantId, ids.map(Number));
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });

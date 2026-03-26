@@ -1,10 +1,10 @@
 const { withAuth } = require('../middleware/auth');
 const userService = require('../../services/userService');
 
-function register(bot) {
-  bot.onText(/\/list/, withAuth(bot, async (msg) => {
+function register(bot, tenantId) {
+  bot.onText(/\/list/, withAuth(bot, tenantId, async (msg) => {
     try {
-      const users = userService.getActiveUsers();
+      const users = userService.getActiveUsers(tenantId);
       if (users.length === 0) {
         await bot.sendMessage(msg.chat.id, 'No active subscribers.');
         return;

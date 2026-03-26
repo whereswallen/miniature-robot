@@ -1,0 +1,29 @@
+<%- include('../partials/sidebar', { page: 'tenants', role }) %>
+<div class="content-area">
+  <h1>Tenant Details</h1>
+  <div id="tenant-info"></div>
+</div>
+<script>
+  const tenantId = '<%= tenantId %>';
+
+  async function loadTenant() {
+    const res = await fetch('/api/platform/tenants/' + tenantId);
+    const t = await res.json();
+    document.getElementById('tenant-info').innerHTML = `
+      <div class="detail-card">
+        <h2>${t.company_name}</h2>
+        <p><strong>Slug:</strong> ${t.slug}</p>
+        <p><strong>Owner:</strong> ${t.owner_name} (${t.owner_email})</p>
+        <p><strong>Plan:</strong> ${t.plan} | <strong>Status:</strong> <span class="badge badge-${t.status}">${t.status}</span></p>
+        <p><strong>Subscribers:</strong> ${t.usage.subscribers.current} / ${t.usage.subscribers.max}</p>
+        <p><strong>Panels:</strong> ${t.usage.panels.current} / ${t.usage.panels.max}</p>
+        <p><strong>Admin Bot:</strong> ${t.admin_bot_token ? 'Configured' : 'Not set'}</p>
+        <p><strong>Customer Bot:</strong> ${t.customer_bot_token ? 'Configured' : 'Not set'}</p>
+        <p><strong>Created:</strong> ${t.created_at}</p>
+        ${t.trial_ends_at ? `<p><strong>Trial Ends:</strong> ${t.trial_ends_at}</p>` : ''}
+      </div>
+    `;
+  }
+
+  loadTenant();
+</script>

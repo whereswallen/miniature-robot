@@ -5,74 +5,83 @@ const reminderService = require('../services/reminderService');
 const customerNotification = require('../services/customerNotificationService');
 const backupService = require('../services/backupService');
 const syncService = require('../services/syncService');
+const tenantService = require('../services/tenantService');
+const botRegistry = require('../services/botRegistry');
 
-function start(adminBot) {
+function start() {
   cron.schedule(config.scheduler.cronSchedule, async () => {
-    console.log('Running daily maintenance and expiry check...');
+    console.log('Running daily maintenance for all tenants...');
 
-    try {
-      // Auto-expire overdue subscribers
-      const expiredCount = alertService.runDailyMaintenance();
-      if (expiredCount > 0) {
-        console.log(`Auto-expired ${expiredCount} subscriber(s).`);
-      }
+    const tenants = tenantService.listActiveTenants();
 
-      // Send customer reminders
-      let customerNotified = 0;
-      let noTelegram = 0;
-      for (const daysBefore of config.scheduler.alertDaysBefore) {
-        const subs = reminderService.getSubscribersNeedingReminder(daysBefore);
-        for (const sub of subs) {
-          if (sub.telegram_chat_id) {
-            const sent = await customerNotification.sendExpiryReminder(
-              sub.id, Math.ceil(sub.days_left), sub.customer_name
-            );
-            if (sent) customerNotified++;
-          } else {
-            noTelegram++;
-          }
-          reminderService.markReminderSent(sub.id, daysBefore);
+    for (const tenant of tenants) {
+      try {
+        // Auto-expire overdue subscribers
+        const expiredCount = alertService.runDailyMaintenance(tenant.id);
+        if (expiredCount > 0) {
+          console.log(`[Tenant ${tenant.id}] Auto-expired ${expiredCount} subscriber(s).`);
         }
-      }
 
-      if (customerNotified > 0 || noTelegram > 0) {
-        console.log(`Reminders: ${customerNotified} sent to customers, ${noTelegram} without Telegram.`);
-      }
-
-      // Build and send admin expiry alert
-      const alertText = alertService.buildExpiryAlert();
-      const reminderSummary = customerNotified > 0 || noTelegram > 0
-        ? `\n\n--- Reminders ---\n${customerNotified} customer(s) notified\n${noTelegram} customer(s) need manual contact`
-        : '';
-
-      const fullAlert = alertText ? alertText + reminderSummary : (reminderSummary ? `--- Daily Report ---${reminderSummary}` : null);
-
-      if (fullAlert) {
-        for (const chatId of config.telegram.authorizedChatIds) {
-          try {
-            await adminBot.sendMessage(chatId, fullAlert);
-          } catch (err) {
-            console.error(`Failed to send alert to chat ${chatId}: ${err.message}`);
+        // Send customer reminders
+        let customerNotified = 0;
+        let noTelegram = 0;
+        for (const daysBefore of config.scheduler.alertDaysBefore) {
+          const subs = reminderService.getSubscribersNeedingReminder(tenant.id, daysBefore);
+          for (const sub of subs) {
+            if (sub.telegram_chat_id) {
+              const sent = await customerNotification.sendExpiryReminder(
+                tenant.id, sub.id, Math.ceil(sub.days_left), sub.customer_name
+              );
+              if (sent) customerNotified++;
+            } else {
+              noTelegram++;
+            }
+            reminderService.markReminderSent(tenant.id, sub.id, daysBefore);
           }
         }
-      } else {
-        console.log('No upcoming expirations.');
+
+        if (customerNotified > 0 || noTelegram > 0) {
+          console.log(`[Tenant ${tenant.id}] Reminders: ${customerNotified} sent, ${noTelegram} without Telegram.`);
+        }
+
+        // Build and send admin expiry alert
+        const adminBot = botRegistry.getAdminBot(tenant.id);
+        if (adminBot) {
+          const alertText = alertService.buildExpiryAlert(tenant.id);
+          const reminderSummary = customerNotified > 0 || noTelegram > 0
+            ? `\n\n--- Reminders ---\n${customerNotified} customer(s) notified\n${noTelegram} customer(s) need manual contact`
+            : '';
+
+          const fullAlert = alertText ? alertText + reminderSummary : (reminderSummary ? `--- Daily Report ---${reminderSummary}` : null);
+
+          if (fullAlert) {
+            const chatIds = tenantService.getAuthorizedChatIds(tenant.id);
+            for (const chatId of chatIds) {
+              try {
+                await adminBot.sendMessage(chatId, fullAlert);
+              } catch (err) {
+                console.error(`[Tenant ${tenant.id}] Failed to send alert to chat ${chatId}: ${err.message}`);
+              }
+            }
+          }
+        }
+
+        // Attempt to sync pending changes
+        const pendingCount = syncService.getPendingCount(tenant.id);
+        if (pendingCount > 0) {
+          console.log(`[Tenant ${tenant.id}] Syncing ${pendingCount} pending change(s)...`);
+          const syncResult = await syncService.syncAll(tenant.id);
+          console.log(`[Tenant ${tenant.id}] Sync: ${syncResult.synced} synced, ${syncResult.failed} failed.`);
+        }
+      } catch (err) {
+        console.error(`[Tenant ${tenant.id}] Scheduler error: ${err.message}`);
       }
-      // Attempt to sync pending changes to panels
-      const pendingCount = syncService.getPendingCount();
-      if (pendingCount > 0) {
-        console.log(`Attempting to sync ${pendingCount} pending change(s)...`);
-        const syncResult = await syncService.syncAll();
-        console.log(`Sync complete: ${syncResult.synced} synced, ${syncResult.failed} failed.`);
-      }
-    } catch (err) {
-      console.error('Scheduler error:', err.message);
     }
   });
 
   console.log(`Scheduler started (${config.scheduler.cronSchedule}).`);
 
-  // Scheduled auto-backup — runs daily at 2 AM
+  // Scheduled auto-backup — runs daily at 2 AM (platform-level)
   const backupSchedule = config.scheduler.backupCronSchedule || '0 2 * * *';
   cron.schedule(backupSchedule, () => {
     try {

@@ -1,4 +1,4 @@
-function register(bot) {
+function register(bot, tenantId) {
   const helpText = [
     'IPTV Customer Bot - Commands:\n',
     '/start <code> - Link your account using a code from your provider',

@@ -1,6 +1,6 @@
 const { withAuth } = require('../middleware/auth');
 
-function register(bot) {
+function register(bot, tenantId) {
   const helpText = [
     'LineTrack - Commands:\n',
     '/adduser - Add a new subscriber',
@@ -23,11 +23,11 @@ function register(bot) {
     '/help - Show this message',
   ].join('\n');
 
-  bot.onText(/\/start/, withAuth(bot, async (msg) => {
+  bot.onText(/\/start/, withAuth(bot, tenantId, async (msg) => {
     await bot.sendMessage(msg.chat.id, `Welcome to LineTrack!\n\n${helpText}`);
   }));
 
-  bot.onText(/\/help/, withAuth(bot, async (msg) => {
+  bot.onText(/\/help/, withAuth(bot, tenantId, async (msg) => {
     await bot.sendMessage(msg.chat.id, helpText);
   }));
 }

@@ -12,8 +12,8 @@ const findExistingLink = db.prepare(`
   SELECT * FROM customer_links WHERE subscriber_id = @subscriberId
 `);
 
-function register(bot) {
-  bot.onText(/\/genlink(?:\s+(.+))?/, withAuth(bot, async (msg, match) => {
+function register(bot, tenantId) {
+  bot.onText(/\/genlink(?:\s+(.+))?/, withAuth(bot, tenantId, async (msg, match) => {
     const username = match[1]?.trim();
     if (!username) {
       await bot.sendMessage(msg.chat.id, 'Usage: /genlink <xtream_username>');
@@ -21,7 +21,7 @@ function register(bot) {
     }
 
     try {
-      const sub = userService.getUserByUsername(username);
+      const sub = userService.getUserByUsername(tenantId, username);
       if (!sub) {
         await bot.sendMessage(msg.chat.id, `Subscriber "${username}" not found.`);
         return;

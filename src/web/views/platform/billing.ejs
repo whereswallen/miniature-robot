@@ -1,0 +1,63 @@
+<%- include('../partials/sidebar', { page: 'platform-billing', role }) %>
+<div class="content-area">
+  <div class="page-header">
+    <h1>Platform Billing</h1>
+    <button class="btn btn-primary" onclick="showRecordPayment()">Record Manual Payment</button>
+  </div>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>Tenant</th><th>Amount</th><th>Method</th><th>Status</th><th>Date</th><th>Reference</th></tr>
+    </thead>
+    <tbody id="payment-list"></tbody>
+  </table>
+</div>
+
+<div id="payment-modal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>Record Manual Payment</h2>
+    <form id="payment-form">
+      <div class="form-group"><label>Tenant ID</label><input type="number" name="tenantId" required></div>
+      <div class="form-group"><label>Amount</label><input type="number" step="0.01" name="amount" required></div>
+      <div class="form-group"><label>Currency</label><input type="text" name="currency" value="USD"></div>
+      <div class="form-group"><label>Reference</label><input type="text" name="reference"></div>
+      <div class="form-group"><label>Notes</label><textarea name="notes"></textarea></div>
+      <div class="form-actions">
+        <button type="button" class="btn" onclick="hidePaymentModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Record</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  async function loadPayments() {
+    const res = await fetch('/api/platform/billing');
+    const { data } = await res.json();
+    document.getElementById('payment-list').innerHTML = data.map(p => `
+      <tr>
+        <td>${p.company_name}</td>
+        <td>$${p.amount.toFixed(2)} ${p.currency}</td>
+        <td>${p.method}</td>
+        <td><span class="badge badge-${p.status}">${p.status}</span></td>
+        <td>${p.created_at}</td>
+        <td>${p.reference || '-'}</td>
+      </tr>
+    `).join('');
+  }
+
+  function showRecordPayment() { document.getElementById('payment-modal').style.display = 'flex'; }
+  function hidePaymentModal() { document.getElementById('payment-modal').style.display = 'none'; }
+
+  document.getElementById('payment-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const body = Object.fromEntries(form);
+    const res = await fetch('/api/platform/billing/manual', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (res.ok) { hidePaymentModal(); loadPayments(); } else { const d = await res.json(); alert(d.error); }
+  });
+
+  loadPayments();
+</script>

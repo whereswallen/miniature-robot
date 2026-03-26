@@ -7,7 +7,7 @@ router.use(requireAuthAPI);
 
 router.get('/status', (req, res) => {
   try {
-    const status = syncService.getStatus();
+    const status = syncService.getStatus(req.tenantId);
     res.json(status);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -16,7 +16,7 @@ router.get('/status', (req, res) => {
 
 router.post('/run', async (req, res) => {
   try {
-    const result = await syncService.syncAll();
+    const result = await syncService.syncAll(req.tenantId);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -35,7 +35,7 @@ router.post('/:id/retry', async (req, res) => {
 
 router.delete('/clear', (req, res) => {
   try {
-    const cleared = syncService.clearSynced();
+    const cleared = syncService.clearSynced(req.tenantId);
     res.json({ ok: true, cleared });
   } catch (err) {
     res.status(500).json({ error: err.message });

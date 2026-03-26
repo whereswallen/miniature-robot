@@ -1,102 +1,112 @@
 const db = require('../db/connection');
 const panelService = require('./panelService');
 const syncService = require('./syncService');
+const tenantService = require('./tenantService');
 
 // --- Prepared statements ---
 
 const insertSubscriber = db.prepare(`
-  INSERT INTO subscribers (customer_name, phone, telegram_user, xtream_username, package, start_date, expiry_date, status, notes, panel_id, cost_per_line)
-  VALUES (@customerName, @phone, @telegramUser, @xtreamUsername, @package, @startDate, @expiryDate, @status, @notes, @panelId, @costPerLine)
+  INSERT INTO subscribers (tenant_id, customer_name, phone, telegram_user, xtream_username, package, start_date, expiry_date, status, notes, panel_id, cost_per_line)
+  VALUES (@tenantId, @customerName, @phone, @telegramUser, @xtreamUsername, @package, @startDate, @expiryDate, @status, @notes, @panelId, @costPerLine)
 `);
 
 const updateSubscriber = db.prepare(`
   UPDATE subscribers SET customer_name = @customerName, phone = @phone, telegram_user = @telegramUser,
     package = @package, notes = @notes, cost_per_line = @costPerLine, updated_at = datetime('now')
-  WHERE id = @id
+  WHERE id = @id AND tenant_id = @tenantId
 `);
 
 const updateStatus = db.prepare(`
-  UPDATE subscribers SET status = @status, updated_at = datetime('now') WHERE xtream_username = @xtreamUsername
+  UPDATE subscribers SET status = @status, updated_at = datetime('now')
+  WHERE xtream_username = @xtreamUsername AND tenant_id = @tenantId
 `);
 
 const updateStatusById = db.prepare(`
-  UPDATE subscribers SET status = @status, updated_at = datetime('now') WHERE id = @id
+  UPDATE subscribers SET status = @status, updated_at = datetime('now')
+  WHERE id = @id AND tenant_id = @tenantId
 `);
 
 const updateExpiry = db.prepare(`
-  UPDATE subscribers SET expiry_date = @expiryDate, status = 'active', updated_at = datetime('now') WHERE xtream_username = @xtreamUsername
+  UPDATE subscribers SET expiry_date = @expiryDate, status = 'active', updated_at = datetime('now')
+  WHERE xtream_username = @xtreamUsername AND tenant_id = @tenantId
 `);
 
 const updateExpiryById = db.prepare(`
-  UPDATE subscribers SET expiry_date = @expiryDate, status = 'active', updated_at = datetime('now') WHERE id = @id
+  UPDATE subscribers SET expiry_date = @expiryDate, status = 'active', updated_at = datetime('now')
+  WHERE id = @id AND tenant_id = @tenantId
 `);
 
 const findByXtreamUsername = db.prepare(`
   SELECT s.*, p.name as panel_name FROM subscribers s LEFT JOIN panels p ON s.panel_id = p.id
-  WHERE s.xtream_username = @xtreamUsername
+  WHERE s.xtream_username = @xtreamUsername AND s.tenant_id = @tenantId
 `);
 
 const findById = db.prepare(`
   SELECT s.*, p.name as panel_name FROM subscribers s LEFT JOIN panels p ON s.panel_id = p.id
-  WHERE s.id = @id
+  WHERE s.id = @id AND s.tenant_id = @tenantId
 `);
 
 const searchByName = db.prepare(`
   SELECT s.*, p.name as panel_name FROM subscribers s LEFT JOIN panels p ON s.panel_id = p.id
-  WHERE s.customer_name LIKE @search OR s.xtream_username LIKE @search
+  WHERE (s.customer_name LIKE @search OR s.xtream_username LIKE @search) AND s.tenant_id = @tenantId
 `);
 
 const listActive = db.prepare(`
   SELECT s.*, p.name as panel_name FROM subscribers s LEFT JOIN panels p ON s.panel_id = p.id
-  WHERE s.status = 'active' ORDER BY s.expiry_date ASC
+  WHERE s.status = 'active' AND s.tenant_id = @tenantId ORDER BY s.expiry_date ASC
 `);
 
 const findExpiring = db.prepare(`
   SELECT s.*, p.name as panel_name, julianday(s.expiry_date) - julianday('now') AS days_left
   FROM subscribers s LEFT JOIN panels p ON s.panel_id = p.id
-  WHERE s.status = 'active'
+  WHERE s.status = 'active' AND s.tenant_id = @tenantId
     AND julianday(s.expiry_date) - julianday('now') BETWEEN 0 AND @days
   ORDER BY s.expiry_date ASC
 `);
 
 const expireOverdue = db.prepare(`
   UPDATE subscribers SET status = 'expired', updated_at = datetime('now')
-  WHERE status = 'active' AND date(expiry_date) < date('now')
+  WHERE status = 'active' AND date(expiry_date) < date('now') AND tenant_id = @tenantId
 `);
 
 const countByStatus = db.prepare(`
-  SELECT status, COUNT(*) as count FROM subscribers GROUP BY status
+  SELECT status, COUNT(*) as count FROM subscribers WHERE tenant_id = @tenantId GROUP BY status
 `);
 
 const countExpiringSoon = db.prepare(`
   SELECT COUNT(*) as count FROM subscribers
-  WHERE status = 'active' AND julianday(expiry_date) - julianday('now') BETWEEN 0 AND 7
+  WHERE status = 'active' AND julianday(expiry_date) - julianday('now') BETWEEN 0 AND 7 AND tenant_id = @tenantId
 `);
 
 const totalRevenue = db.prepare(`
   SELECT COALESCE(SUM(amount), 0) as total FROM payment_history
-  WHERE payment_type = 'payment' AND payment_date >= @startDate
+  WHERE payment_type = 'payment' AND payment_date >= @startDate AND tenant_id = @tenantId
 `);
 
 const insertAudit = db.prepare(`
-  INSERT INTO audit_log (action, subscriber_id, details) VALUES (@action, @subscriberId, @details)
+  INSERT INTO audit_log (tenant_id, action, subscriber_id, details) VALUES (@tenantId, @action, @subscriberId, @details)
 `);
 
 const getAuditForSubscriber = db.prepare(`
-  SELECT * FROM audit_log WHERE subscriber_id = @subscriberId ORDER BY performed_at DESC
+  SELECT * FROM audit_log WHERE subscriber_id = @subscriberId AND tenant_id = @tenantId ORDER BY performed_at DESC
 `);
 
 // --- Service methods ---
 
-function logAudit(action, subscriberId, details = {}) {
+function logAudit(tenantId, action, subscriberId, details = {}) {
   insertAudit.run({
+    tenantId,
     action,
     subscriberId: subscriberId || null,
     details: JSON.stringify(details),
   });
 }
 
-async function createUser({ customerName, phone, telegramUser, xtreamUsername, xtreamPassword, pkg, maxConnections, bouquet, expDate, notes, panelId, costPerLine }) {
+async function createUser(tenantId, { customerName, phone, telegramUser, xtreamUsername, xtreamPassword, pkg, maxConnections, bouquet, expDate, notes, panelId, costPerLine }) {
+  if (!tenantService.checkLimit(tenantId, 'subscribers')) {
+    throw new Error('Subscriber limit reached for your plan. Please upgrade to add more.');
+  }
+
   const startDate = new Date().toISOString().split('T')[0];
   const expiryDate = expDate || startDate;
 
@@ -114,6 +124,7 @@ async function createUser({ customerName, phone, telegramUser, xtreamUsername, x
   });
 
   const result = insertSubscriber.run({
+    tenantId,
     customerName,
     phone: phone || null,
     telegramUser: telegramUser || null,
@@ -127,13 +138,13 @@ async function createUser({ customerName, phone, telegramUser, xtreamUsername, x
     costPerLine: costPerLine || null,
   });
 
-  logAudit('create', result.lastInsertRowid, { xtreamUsername, pkg, panelId: resolvedPanelId });
+  logAudit(tenantId, 'create', result.lastInsertRowid, { xtreamUsername, pkg, panelId: resolvedPanelId });
 
   return { id: result.lastInsertRowid, apiResult };
 }
 
-async function disableUser(xtreamUsername, { localOnly = false } = {}) {
-  const sub = findByXtreamUsername.get({ xtreamUsername });
+async function disableUser(tenantId, xtreamUsername, { localOnly = false } = {}) {
+  const sub = findByXtreamUsername.get({ xtreamUsername, tenantId });
   if (!sub) throw new Error(`Subscriber "${xtreamUsername}" not found.`);
 
   let pendingSync = false;
@@ -155,20 +166,20 @@ async function disableUser(xtreamUsername, { localOnly = false } = {}) {
     }
   }
 
-  updateStatus.run({ status: 'disabled', xtreamUsername });
-  logAudit('disable', sub.id, { xtreamUsername, localOnly: pendingSync });
+  updateStatus.run({ status: 'disabled', xtreamUsername, tenantId });
+  logAudit(tenantId, 'disable', sub.id, { xtreamUsername, localOnly: pendingSync });
 
   return { ...sub, pendingSync };
 }
 
-async function disableUserById(id, opts) {
-  const sub = findById.get({ id });
+async function disableUserById(tenantId, id, opts) {
+  const sub = findById.get({ id, tenantId });
   if (!sub) throw new Error('Subscriber not found.');
-  return disableUser(sub.xtream_username, opts);
+  return disableUser(tenantId, sub.xtream_username, opts);
 }
 
-async function enableUser(xtreamUsername, { localOnly = false } = {}) {
-  const sub = findByXtreamUsername.get({ xtreamUsername });
+async function enableUser(tenantId, xtreamUsername, { localOnly = false } = {}) {
+  const sub = findByXtreamUsername.get({ xtreamUsername, tenantId });
   if (!sub) throw new Error(`Subscriber "${xtreamUsername}" not found.`);
 
   let pendingSync = false;
@@ -190,20 +201,20 @@ async function enableUser(xtreamUsername, { localOnly = false } = {}) {
     }
   }
 
-  updateStatus.run({ status: 'active', xtreamUsername });
-  logAudit('enable', sub.id, { xtreamUsername, localOnly: pendingSync });
+  updateStatus.run({ status: 'active', xtreamUsername, tenantId });
+  logAudit(tenantId, 'enable', sub.id, { xtreamUsername, localOnly: pendingSync });
 
   return { ...sub, pendingSync };
 }
 
-async function enableUserById(id, opts) {
-  const sub = findById.get({ id });
+async function enableUserById(tenantId, id, opts) {
+  const sub = findById.get({ id, tenantId });
   if (!sub) throw new Error('Subscriber not found.');
-  return enableUser(sub.xtream_username, opts);
+  return enableUser(tenantId, sub.xtream_username, opts);
 }
 
-async function extendUser(xtreamUsername, newExpiryDate, { localOnly = false } = {}) {
-  const sub = findByXtreamUsername.get({ xtreamUsername });
+async function extendUser(tenantId, xtreamUsername, newExpiryDate, { localOnly = false } = {}) {
+  const sub = findByXtreamUsername.get({ xtreamUsername, tenantId });
   if (!sub) throw new Error(`Subscriber "${xtreamUsername}" not found.`);
 
   let pendingSync = false;
@@ -225,8 +236,8 @@ async function extendUser(xtreamUsername, newExpiryDate, { localOnly = false } =
     }
   }
 
-  updateExpiry.run({ expiryDate: newExpiryDate, xtreamUsername });
-  logAudit('extend', sub.id, { xtreamUsername, newExpiryDate, localOnly: pendingSync });
+  updateExpiry.run({ expiryDate: newExpiryDate, xtreamUsername, tenantId });
+  logAudit(tenantId, 'extend', sub.id, { xtreamUsername, newExpiryDate, localOnly: pendingSync });
 
   // Reset reminders so they fire again for new expiry
   try {
@@ -237,15 +248,16 @@ async function extendUser(xtreamUsername, newExpiryDate, { localOnly = false } =
   return { ...sub, expiry_date: newExpiryDate, pendingSync };
 }
 
-async function extendUserById(id, newExpiryDate, opts) {
-  const sub = findById.get({ id });
+async function extendUserById(tenantId, id, newExpiryDate, opts) {
+  const sub = findById.get({ id, tenantId });
   if (!sub) throw new Error('Subscriber not found.');
-  return extendUser(sub.xtream_username, newExpiryDate, opts);
+  return extendUser(tenantId, sub.xtream_username, newExpiryDate, opts);
 }
 
-function updateSubscriberInfo(id, { customerName, phone, telegramUser, pkg, notes, costPerLine }) {
+function updateSubscriberInfo(tenantId, id, { customerName, phone, telegramUser, pkg, notes, costPerLine }) {
   updateSubscriber.run({
     id,
+    tenantId,
     customerName,
     phone: phone || null,
     telegramUser: telegramUser || null,
@@ -253,37 +265,37 @@ function updateSubscriberInfo(id, { customerName, phone, telegramUser, pkg, note
     notes: notes || null,
     costPerLine: costPerLine || null,
   });
-  logAudit('update', id, { customerName });
+  logAudit(tenantId, 'update', id, { customerName });
 }
 
-function getSubscriberById(id) {
-  return findById.get({ id });
+function getSubscriberById(tenantId, id) {
+  return findById.get({ id, tenantId });
 }
 
-function getSubscriberWithDetails(id) {
-  const sub = findById.get({ id });
+function getSubscriberWithDetails(tenantId, id) {
+  const sub = findById.get({ id, tenantId });
   if (!sub) return null;
-  const payments = db.prepare('SELECT * FROM payment_history WHERE subscriber_id = ? ORDER BY payment_date DESC').all(id);
-  const audit = getAuditForSubscriber.all({ subscriberId: id });
+  const payments = db.prepare('SELECT * FROM payment_history WHERE subscriber_id = ? AND tenant_id = ? ORDER BY payment_date DESC').all(id, tenantId);
+  const audit = getAuditForSubscriber.all({ subscriberId: id, tenantId });
   return { ...sub, payments, audit };
 }
 
-function getUserByUsername(xtreamUsername) {
-  return findByXtreamUsername.get({ xtreamUsername });
+function getUserByUsername(tenantId, xtreamUsername) {
+  return findByXtreamUsername.get({ xtreamUsername, tenantId });
 }
 
-function searchUsers(query) {
-  return searchByName.all({ search: `%${query}%` });
+function searchUsers(tenantId, query) {
+  return searchByName.all({ search: `%${query}%`, tenantId });
 }
 
-function listSubscribers({ page = 1, limit = 25, status, search, panelId, sortBy = 'expiry_date', sortDir = 'ASC' } = {}) {
+function listSubscribers(tenantId, { page = 1, limit = 25, status, search, panelId, sortBy = 'expiry_date', sortDir = 'ASC' } = {}) {
   const validSorts = ['customer_name', 'xtream_username', 'expiry_date', 'status', 'package', 'created_at', 'balance'];
   const validDirs = ['ASC', 'DESC'];
   const sort = validSorts.includes(sortBy) ? sortBy : 'expiry_date';
   const dir = validDirs.includes(sortDir.toUpperCase()) ? sortDir.toUpperCase() : 'ASC';
 
-  let where = 'WHERE 1=1';
-  const params = {};
+  let where = 'WHERE s.tenant_id = @tenantId';
+  const params = { tenantId };
 
   if (status && status !== 'all') {
     where += ' AND s.status = @status';
@@ -313,25 +325,25 @@ function listSubscribers({ page = 1, limit = 25, status, search, panelId, sortBy
   };
 }
 
-function getActiveUsers() {
-  return listActive.all();
+function getActiveUsers(tenantId) {
+  return listActive.all({ tenantId });
 }
 
-function getExpiringUsers(days = 7) {
-  return findExpiring.all({ days });
+function getExpiringUsers(tenantId, days = 7) {
+  return findExpiring.all({ days, tenantId });
 }
 
-function syncExpiredStatus() {
-  const result = expireOverdue.run();
+function syncExpiredStatus(tenantId) {
+  const result = expireOverdue.run({ tenantId });
   return result.changes;
 }
 
-function getStats() {
-  const statusCounts = countByStatus.all();
-  const expiringSoon = countExpiringSoon.get();
+function getStats(tenantId) {
+  const statusCounts = countByStatus.all({ tenantId });
+  const expiringSoon = countExpiringSoon.get({ tenantId });
   const monthStart = new Date();
   monthStart.setDate(1);
-  const revenue = totalRevenue.get({ startDate: monthStart.toISOString().split('T')[0] });
+  const revenue = totalRevenue.get({ startDate: monthStart.toISOString().split('T')[0], tenantId });
 
   const stats = { total: 0, active: 0, disabled: 0, expired: 0, expiring_soon: expiringSoon.count, revenue_this_month: revenue.total };
   for (const row of statusCounts) {
@@ -344,11 +356,11 @@ function getStats() {
 
 // --- Bulk operations ---
 
-async function bulkDisable(ids) {
+async function bulkDisable(tenantId, ids) {
   const results = { success: 0, failed: 0, errors: [] };
   for (const id of ids) {
     try {
-      await disableUserById(id);
+      await disableUserById(tenantId, id);
       results.success++;
     } catch (err) {
       results.failed++;
@@ -358,11 +370,11 @@ async function bulkDisable(ids) {
   return results;
 }
 
-async function bulkEnable(ids) {
+async function bulkEnable(tenantId, ids) {
   const results = { success: 0, failed: 0, errors: [] };
   for (const id of ids) {
     try {
-      await enableUserById(id);
+      await enableUserById(tenantId, id);
       results.success++;
     } catch (err) {
       results.failed++;
@@ -372,16 +384,16 @@ async function bulkEnable(ids) {
   return results;
 }
 
-async function bulkExtend(ids, days) {
+async function bulkExtend(tenantId, ids, days) {
   const results = { success: 0, failed: 0, errors: [] };
   for (const id of ids) {
     try {
-      const sub = findById.get({ id });
+      const sub = findById.get({ id, tenantId });
       if (!sub) throw new Error('Not found');
       const base = new Date(sub.expiry_date) > new Date() ? new Date(sub.expiry_date) : new Date();
       base.setDate(base.getDate() + days);
       const newExpiry = base.toISOString().split('T')[0];
-      await extendUserById(id, newExpiry);
+      await extendUserById(tenantId, id, newExpiry);
       results.success++;
     } catch (err) {
       results.failed++;
@@ -393,8 +405,9 @@ async function bulkExtend(ids, days) {
 
 // --- Local-only create (for CSV import without panel) ---
 
-function createUserLocal({ customerName, phone, telegramUser, xtreamUsername, pkg, startDate, expiryDate, status, notes, panelId, costPerLine }) {
+function createUserLocal(tenantId, { customerName, phone, telegramUser, xtreamUsername, pkg, startDate, expiryDate, status, notes, panelId, costPerLine }) {
   const result = insertSubscriber.run({
+    tenantId,
     customerName,
     phone: phone || null,
     telegramUser: telegramUser || null,
@@ -407,7 +420,7 @@ function createUserLocal({ customerName, phone, telegramUser, xtreamUsername, pk
     panelId: panelId || null,
     costPerLine: costPerLine || null,
   });
-  logAudit('import', result.lastInsertRowid, { xtreamUsername });
+  logAudit(tenantId, 'import', result.lastInsertRowid, { xtreamUsername });
   return result.lastInsertRowid;
 }
 

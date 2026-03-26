@@ -2,8 +2,8 @@ const { withAuth } = require('../middleware/auth');
 const userService = require('../../services/userService');
 const financialService = require('../../services/financialService');
 
-function register(bot) {
-  bot.onText(/\/payment(?:\s+(\S+)(?:\s+(\S+)(?:\s+(.+))?)?)?/, withAuth(bot, async (msg, match) => {
+function register(bot, tenantId) {
+  bot.onText(/\/payment(?:\s+(\S+)(?:\s+(\S+)(?:\s+(.+))?)?)?/, withAuth(bot, tenantId, async (msg, match) => {
     const username = match[1]?.trim();
     const amount = match[2]?.trim();
     const method = match[3]?.trim();
@@ -14,13 +14,13 @@ function register(bot) {
     }
 
     try {
-      const sub = userService.getUserByUsername(username);
+      const sub = userService.getUserByUsername(tenantId, username);
       if (!sub) {
         await bot.sendMessage(msg.chat.id, `Subscriber "${username}" not found.`);
         return;
       }
 
-      financialService.recordPayment(sub.id, {
+      financialService.recordPayment(tenantId, sub.id, {
         amount: parseFloat(amount),
         method: method || 'Cash',
       });

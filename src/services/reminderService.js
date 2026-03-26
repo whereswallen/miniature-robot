@@ -6,6 +6,7 @@ const findNeedingReminder = db.prepare(`
   FROM subscribers s
   LEFT JOIN customer_links cl ON s.id = cl.subscriber_id
   WHERE s.status = 'active'
+    AND s.tenant_id = @tenantId
     AND julianday(s.expiry_date) - julianday('now') BETWEEN 0 AND @daysBefore
     AND s.id NOT IN (
       SELECT subscriber_id FROM reminders_sent
@@ -15,8 +16,8 @@ const findNeedingReminder = db.prepare(`
 `);
 
 const insertReminder = db.prepare(`
-  INSERT OR IGNORE INTO reminders_sent (subscriber_id, reminder_type, days_before)
-  VALUES (@subscriberId, @reminderType, @daysBefore)
+  INSERT OR IGNORE INTO reminders_sent (tenant_id, subscriber_id, reminder_type, days_before)
+  VALUES (@tenantId, @subscriberId, @reminderType, @daysBefore)
 `);
 
 const deleteReminders = db.prepare(`
@@ -25,15 +26,16 @@ const deleteReminders = db.prepare(`
 
 const todaysSentCount = db.prepare(`
   SELECT COUNT(*) as count FROM reminders_sent
-  WHERE date(sent_at) = date('now')
+  WHERE tenant_id = @tenantId AND date(sent_at) = date('now')
 `);
 
-function getSubscribersNeedingReminder(daysBefore) {
-  return findNeedingReminder.all({ daysBefore });
+function getSubscribersNeedingReminder(tenantId, daysBefore) {
+  return findNeedingReminder.all({ tenantId, daysBefore });
 }
 
-function markReminderSent(subscriberId, daysBefore, reminderType = 'expiry') {
+function markReminderSent(tenantId, subscriberId, daysBefore, reminderType = 'expiry') {
   insertReminder.run({
+    tenantId,
     subscriberId,
     reminderType,
     daysBefore,
@@ -44,8 +46,8 @@ function resetRemindersForSubscriber(subscriberId) {
   deleteReminders.run({ subscriberId });
 }
 
-function getTodaysSentCount() {
-  return todaysSentCount.get().count;
+function getTodaysSentCount(tenantId) {
+  return todaysSentCount.get({ tenantId }).count;
 }
 
 module.exports = {

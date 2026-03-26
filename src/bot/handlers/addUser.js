@@ -17,14 +17,14 @@ const STEPS = [
   { key: 'notes', prompt: 'Any notes (or "skip"):' },
 ];
 
-function register(bot) {
-  bot.onText(/\/adduser/, withAuth(bot, async (msg) => {
+function register(bot, tenantId) {
+  bot.onText(/\/adduser/, withAuth(bot, tenantId, async (msg) => {
     const chatId = msg.chat.id;
     sessions.set(chatId, { step: 0, data: {} });
     await bot.sendMessage(chatId, `Adding new subscriber (type /cancel to abort).\n\n${STEPS[0].prompt}`);
   }));
 
-  bot.onText(/\/cancel/, withAuth(bot, async (msg) => {
+  bot.onText(/\/cancel/, withAuth(bot, tenantId, async (msg) => {
     if (sessions.has(msg.chat.id)) {
       sessions.delete(msg.chat.id);
       await bot.sendMessage(msg.chat.id, 'Add user cancelled.');
@@ -109,7 +109,7 @@ function register(bot) {
 
     const d = session.data;
     try {
-      await userService.createUser({
+      await userService.createUser(tenantId, {
         customerName: d.customerName,
         phone: d.phone,
         telegramUser: d.telegramUser,

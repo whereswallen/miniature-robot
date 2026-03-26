@@ -1,8 +1,8 @@
 const { withAuth } = require('../middleware/auth');
 const backupService = require('../../services/backupService');
 
-function register(bot) {
-  bot.onText(/\/backup(?:\s+(.+))?/, withAuth(bot, async (msg, match) => {
+function register(bot, tenantId) {
+  bot.onText(/\/backup(?:\s+(.+))?/, withAuth(bot, tenantId, async (msg, match) => {
     const arg = match[1]?.trim();
 
     // /backup list

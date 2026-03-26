@@ -1,11 +1,11 @@
 const { withAuth } = require('../middleware/auth');
 const userService = require('../../services/userService');
 
-function register(bot) {
-  bot.onText(/\/expiring(?:\s+(\d+))?/, withAuth(bot, async (msg, match) => {
+function register(bot, tenantId) {
+  bot.onText(/\/expiring(?:\s+(\d+))?/, withAuth(bot, tenantId, async (msg, match) => {
     try {
       const days = parseInt(match[1], 10) || 7;
-      const users = userService.getExpiringUsers(days);
+      const users = userService.getExpiringUsers(tenantId, days);
 
       if (users.length === 0) {
         await bot.sendMessage(msg.chat.id, `No subscribers expiring within ${days} days.`);

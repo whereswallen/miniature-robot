@@ -1,8 +1,8 @@
 const { withAuth } = require('../middleware/auth');
 const userService = require('../../services/userService');
 
-function register(bot) {
-  bot.onText(/\/extend(?:\s+(\S+)(?:\s+(\S+))?)?/, withAuth(bot, async (msg, match) => {
+function register(bot, tenantId) {
+  bot.onText(/\/extend(?:\s+(\S+)(?:\s+(\S+))?)?/, withAuth(bot, tenantId, async (msg, match) => {
     const username = match[1]?.trim();
     const daysOrDate = match[2]?.trim();
 
@@ -12,7 +12,7 @@ function register(bot) {
     }
 
     try {
-      const sub = userService.getUserByUsername(username);
+      const sub = userService.getUserByUsername(tenantId, username);
       if (!sub) {
         await bot.sendMessage(msg.chat.id, `Subscriber "${username}" not found.`);
         return;
@@ -31,7 +31,7 @@ function register(bot) {
         return;
       }
 
-      const result = await userService.extendUser(username, newExpiry);
+      const result = await userService.extendUser(tenantId, username, newExpiry);
       const syncNote = result.pendingSync ? '\n\n⏳ Panel was unreachable — change saved locally and will sync when the panel is back online.' : '';
       await bot.sendMessage(
         msg.chat.id,

@@ -2,8 +2,8 @@ const config = require('./config');
 const { initialize } = require('./db/schema');
 const panelService = require('./services/panelService');
 const authService = require('./services/authService');
-const { createBot } = require('./bot');
-const { createCustomerBot } = require('./bot/customer');
+const botRegistry = require('./services/botRegistry');
+const customerNotification = require('./services/customerNotificationService');
 const { createApp } = require('./web/app');
 const scheduler = require('./scheduler/cron');
 
@@ -12,28 +12,29 @@ async function main() {
   initialize();
   console.log('Database initialized.');
 
-  // Seed default panel from env vars (if no panels exist yet)
+  // Seed default panel from env vars (if no panels exist for default tenant)
   panelService.seedFromEnv();
 
-  // Seed default admin for web login
-  await authService.seedDefaultAdmin();
+  // Seed super admin for web login
+  await authService.seedSuperAdmin();
 
-  // Start admin Telegram bot
-  const adminBot = createBot();
+  // Migrate legacy env-based bot tokens to default tenant if needed
+  const tenantService = require('./services/tenantService');
+  const defaultTenant = tenantService.getTenant(1);
+  if (defaultTenant && !defaultTenant.admin_bot_token && config.telegram.token) {
+    tenantService.configureBots(1, {
+      adminBotToken: config.telegram.token,
+      customerBotToken: config.customerBot.token,
+      adminChatIds: config.telegram.authorizedChatIds.join(','),
+    });
+    console.log('Migrated bot tokens from env vars to default tenant.');
+  }
 
-  // Start customer Telegram bot (optional)
-  const customerBot = createCustomerBot();
-  if (customerBot) {
-    customerBot.setAdminBot = undefined; // already set via support handler
-    // Wire support handler to forward to admin bot
-    if (customerBot._textRegExpCallbacks) {
-      // The support handler stores setAdminBot on the bot instance
-    }
-  }
-  // Set admin bot ref on customer support handler
-  if (customerBot && customerBot.setAdminBot) {
-    customerBot.setAdminBot(adminBot);
-  }
+  // Initialize all tenant bots via registry
+  botRegistry.initializeAllBots();
+
+  // Wire customer notification service to bot registry
+  customerNotification.setBotRegistry(botRegistry);
 
   // Start web dashboard
   const app = createApp();
@@ -42,7 +43,7 @@ async function main() {
   });
 
   // Start scheduled tasks
-  scheduler.start(adminBot);
+  scheduler.start();
 
   console.log('LineTrack is running.');
 }

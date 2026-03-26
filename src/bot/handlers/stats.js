@@ -1,10 +1,10 @@
 const { withAuth } = require('../middleware/auth');
 const userService = require('../../services/userService');
 
-function register(bot) {
-  bot.onText(/\/stats/, withAuth(bot, async (msg) => {
+function register(bot, tenantId) {
+  bot.onText(/\/stats/, withAuth(bot, tenantId, async (msg) => {
     try {
-      const stats = userService.getStats();
+      const stats = userService.getStats(tenantId);
       const text = [
         '--- IPTV Dashboard ---\n',
         `Total Subscribers: ${stats.total}`,

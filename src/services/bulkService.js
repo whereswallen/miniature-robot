@@ -23,7 +23,6 @@ function parseXLSX(buffer) {
 }
 
 function normalizeRow(row) {
-  // Map common column names to our fields
   const mapping = {
     customer_name: ['customer_name', 'name', 'customer', 'client_name', 'client'],
     phone: ['phone', 'phone_number', 'tel', 'mobile'],
@@ -49,13 +48,13 @@ function normalizeRow(row) {
   return normalized;
 }
 
-function validateImportData(rows) {
+function validateImportData(tenantId, rows) {
   const valid = [];
   const errors = [];
   const seenUsernames = new Set();
 
   const existingUsernames = new Set(
-    db.prepare('SELECT xtream_username FROM subscribers').all().map((r) => r.xtream_username)
+    db.prepare('SELECT xtream_username FROM subscribers WHERE tenant_id = ?').all(tenantId).map((r) => r.xtream_username)
   );
 
   rows.forEach((rawRow, index) => {
@@ -86,19 +85,19 @@ function validateImportData(rows) {
   return { valid, errors };
 }
 
-function previewImport(rows) {
+function previewImport(tenantId, rows) {
   const normalized = rows.map(normalizeRow);
-  const { valid, errors } = validateImportData(rows);
+  const { valid, errors } = validateImportData(tenantId, rows);
   return { total: rows.length, valid: valid.length, errors: errors.length, errorDetails: errors, preview: normalized.slice(0, 20) };
 }
 
-function executeImport(rows, panelId = null) {
-  const { valid, errors } = validateImportData(rows);
+function executeImport(tenantId, rows, panelId = null) {
+  const { valid, errors } = validateImportData(tenantId, rows);
   let imported = 0;
 
   const importTransaction = db.transaction((validRows) => {
     for (const row of validRows) {
-      userService.createUserLocal({
+      userService.createUserLocal(tenantId, {
         customerName: row.customer_name,
         phone: row.phone,
         telegramUser: row.telegram_user,
@@ -119,9 +118,9 @@ function executeImport(rows, panelId = null) {
   return { imported, skipped: errors.length, errors };
 }
 
-function exportSubscribers(filters = {}) {
-  let where = 'WHERE 1=1';
-  const params = {};
+function exportSubscribers(tenantId, filters = {}) {
+  let where = 'WHERE s.tenant_id = @tenantId';
+  const params = { tenantId };
   if (filters.status && filters.status !== 'all') {
     where += ' AND s.status = @status';
     params.status = filters.status;
@@ -139,9 +138,9 @@ function exportSubscribers(filters = {}) {
   `).all(params);
 }
 
-function exportPayments(filters = {}) {
-  let where = 'WHERE 1=1';
-  const params = {};
+function exportPayments(tenantId, filters = {}) {
+  let where = 'WHERE ph.tenant_id = @tenantId';
+  const params = { tenantId };
   if (filters.startDate) {
     where += ' AND ph.payment_date >= @startDate';
     params.startDate = filters.startDate;

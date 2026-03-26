@@ -1,8 +1,8 @@
 const PDFDocument = require('pdfkit');
 const financialService = require('./financialService');
 
-function generateInvoiceText(paymentId) {
-  const data = financialService.generateInvoiceData(paymentId);
+function generateInvoiceText(tenantId, paymentId) {
+  const data = financialService.generateInvoiceData(tenantId, paymentId);
   return [
     `INVOICE ${data.invoiceNumber}`,
     `Date: ${data.date}`,
@@ -20,8 +20,8 @@ function generateInvoiceText(paymentId) {
   ].filter((l) => l !== undefined).join('\n');
 }
 
-function generateInvoicePDF(paymentId) {
-  const data = financialService.generateInvoiceData(paymentId);
+function generateInvoicePDF(tenantId, paymentId) {
+  const data = financialService.generateInvoiceData(tenantId, paymentId);
   const doc = new PDFDocument({ size: 'A4', margin: 50 });
 
   // Header

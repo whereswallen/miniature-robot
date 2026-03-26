@@ -6,7 +6,7 @@ const findSubscription = db.prepare(`
   WHERE cl.telegram_chat_id = @chatId
 `);
 
-function register(bot) {
+function register(bot, tenantId) {
   bot.onText(/\/expiry/, async (msg) => {
     const sub = findSubscription.get({ chatId: String(msg.chat.id) });
     if (!sub) {
