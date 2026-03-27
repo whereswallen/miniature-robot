@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const { requireAuthPage } = require('../middleware/auth');
+const db = require('../../db/connection');
 
 const router = Router();
 
@@ -12,7 +13,25 @@ router.get('/signup', (req, res) => {
 });
 
 router.get('/', requireAuthPage, (req, res) => {
+  // Redirect new tenants to onboarding if no panels configured
+  if (req.role !== 'super_admin') {
+    const onboardingDone = db.prepare(
+      "SELECT value FROM tenant_settings WHERE tenant_id = ? AND key = 'onboarding_complete'"
+    ).get(req.tenantId);
+    if (!onboardingDone) {
+      const panelCount = db.prepare(
+        'SELECT COUNT(*) as count FROM panels WHERE tenant_id = ? AND is_active = 1'
+      ).get(req.tenantId);
+      if (panelCount.count === 0) {
+        return res.redirect('/onboarding');
+      }
+    }
+  }
   res.render('dashboard', { admin: req.admin, role: req.role });
+});
+
+router.get('/onboarding', requireAuthPage, (req, res) => {
+  res.render('onboarding', { admin: req.admin, role: req.role });
 });
 
 router.get('/subscribers', requireAuthPage, (req, res) => {
@@ -33,6 +52,10 @@ router.get('/bulk', requireAuthPage, (req, res) => {
 
 router.get('/settings', requireAuthPage, (req, res) => {
   res.render('settings', { admin: req.admin, role: req.role });
+});
+
+router.get('/campaigns', requireAuthPage, (req, res) => {
+  res.render('campaigns', { admin: req.admin, role: req.role });
 });
 
 // Platform pages (super admin only)

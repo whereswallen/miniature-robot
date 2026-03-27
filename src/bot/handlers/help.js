@@ -20,6 +20,7 @@ function register(bot, tenantId) {
     '/backup stats - Backup statistics',
     '/sync - Sync pending changes to panel',
     '/sync status - View pending sync queue',
+    '/health - System health pulse',
     '/help - Show this message',
   ].join('\n');
 

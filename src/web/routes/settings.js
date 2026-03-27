@@ -37,6 +37,25 @@ router.put('/', (req, res) => {
   }
 });
 
+// Onboarding
+router.post('/onboarding/complete', (req, res) => {
+  try {
+    db.prepare('INSERT OR REPLACE INTO tenant_settings (tenant_id, key, value) VALUES (?, ?, ?)').run(req.tenantId, 'onboarding_complete', '1');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/onboarding/skip', (req, res) => {
+  try {
+    db.prepare('INSERT OR REPLACE INTO tenant_settings (tenant_id, key, value) VALUES (?, ?, ?)').run(req.tenantId, 'onboarding_complete', '1');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin accounts (scoped to tenant)
 router.get('/admins', (req, res) => {
   try {

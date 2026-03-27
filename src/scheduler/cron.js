@@ -5,6 +5,8 @@ const reminderService = require('../services/reminderService');
 const customerNotification = require('../services/customerNotificationService');
 const backupService = require('../services/backupService');
 const syncService = require('../services/syncService');
+const financialService = require('../services/financialService');
+const recaptureService = require('../services/recaptureService');
 const tenantService = require('../services/tenantService');
 const botRegistry = require('../services/botRegistry');
 
@@ -52,7 +54,17 @@ function start() {
             ? `\n\n--- Reminders ---\n${customerNotified} customer(s) notified\n${noTelegram} customer(s) need manual contact`
             : '';
 
-          const fullAlert = alertText ? alertText + reminderSummary : (reminderSummary ? `--- Daily Report ---${reminderSummary}` : null);
+          // Health pulse
+          const todayRev = financialService.getTodayRevenue(tenant.id);
+          const bStats = backupService.getBackupStats();
+          let bStatus = 'Warning';
+          if (bStats.latestBackup) {
+            const h = (Date.now() - new Date(bStats.latestBackup.createdAt).getTime()) / 3600000;
+            bStatus = h < 48 ? 'OK' : `Warning (${Math.floor(h)}h ago)`;
+          }
+          const healthPulse = `\n\n--- Health Pulse ---\nRevenue Today: $${todayRev.toFixed(2)}\nBackup: ${bStatus}`;
+
+          const fullAlert = (alertText || '--- Daily Report ---') + reminderSummary + healthPulse;
 
           if (fullAlert) {
             const chatIds = tenantService.getAuthorizedChatIds(tenant.id);
@@ -72,6 +84,26 @@ function start() {
           console.log(`[Tenant ${tenant.id}] Syncing ${pendingCount} pending change(s)...`);
           const syncResult = await syncService.syncAll(tenant.id);
           console.log(`[Tenant ${tenant.id}] Sync: ${syncResult.synced} synced, ${syncResult.failed} failed.`);
+        }
+        // Send recapture campaign messages
+        try {
+          const campaigns = recaptureService.getActiveCampaigns(tenant.id);
+          for (const campaign of campaigns) {
+            const eligible = recaptureService.getEligibleSubscribers(
+              tenant.id, campaign.id, campaign.days_after_expiry
+            );
+            for (const sub of eligible) {
+              if (sub.telegram_chat_id) {
+                const message = recaptureService.buildMessage(
+                  campaign.message_template, sub, campaign.offer_text
+                );
+                await customerNotification.notifyCustomer(tenant.id, sub.id, message);
+              }
+              recaptureService.markSent(tenant.id, sub.id, campaign.id);
+            }
+          }
+        } catch (recErr) {
+          console.error(`[Tenant ${tenant.id}] Recapture error: ${recErr.message}`);
         }
       } catch (err) {
         console.error(`[Tenant ${tenant.id}] Scheduler error: ${err.message}`);

@@ -1,5 +1,10 @@
 const db = require('../db/connection');
 
+const todayRevenue = db.prepare(`
+  SELECT COALESCE(SUM(amount), 0) as total FROM payment_history
+  WHERE payment_type = 'payment' AND date(payment_date) = date('now') AND tenant_id = @tenantId
+`);
+
 const insertPayment = db.prepare(`
   INSERT INTO payment_history (tenant_id, subscriber_id, amount, currency, method, notes, payment_type, balance_after)
   VALUES (@tenantId, @subscriberId, @amount, @currency, @method, @notes, @paymentType, @balanceAfter)
@@ -169,6 +174,10 @@ function getAllPayments(tenantId, { page = 1, limit = 25, subscriberId } = {}) {
   return { data: rows, total: countRow.total, page, limit, totalPages: Math.ceil(countRow.total / limit) };
 }
 
+function getTodayRevenue(tenantId) {
+  return todayRevenue.get({ tenantId }).total;
+}
+
 module.exports = {
   recordPayment,
   addCredit,
@@ -180,4 +189,5 @@ module.exports = {
   getProfitReport,
   generateInvoiceData,
   getAllPayments,
+  getTodayRevenue,
 };

@@ -19,6 +19,7 @@ function registerAdminHandlers(bot, tenantId) {
   const panelsHandler = require('../bot/handlers/panels');
   const backupHandler = require('../bot/handlers/backup');
   const syncHandler = require('../bot/handlers/sync');
+  const healthHandler = require('../bot/handlers/health');
 
   helpHandler.register(bot, tenantId);
   statsHandler.register(bot, tenantId);
@@ -34,6 +35,7 @@ function registerAdminHandlers(bot, tenantId) {
   panelsHandler.register(bot, tenantId);
   backupHandler.register(bot, tenantId);
   syncHandler.register(bot, tenantId);
+  healthHandler.register(bot, tenantId);
   listAllHandler.register(bot, tenantId);
 
   bot.setMyCommands([
@@ -53,6 +55,7 @@ function registerAdminHandlers(bot, tenantId) {
     { command: 'genlink', description: 'Generate customer link code' },
     { command: 'backup', description: 'Create/list/stats backups' },
     { command: 'sync', description: 'Sync pending changes to panel' },
+    { command: 'health', description: 'System health pulse' },
   ]);
 }
 

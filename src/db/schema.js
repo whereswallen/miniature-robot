@@ -256,6 +256,50 @@ function initialize() {
     CREATE INDEX IF NOT EXISTS idx_pending_sync_tenant ON pending_sync(tenant_id, status);
   `);
 
+  // --- Recapture campaign tables ---
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recapture_campaigns (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id         INTEGER NOT NULL REFERENCES tenants(id),
+      name              TEXT    NOT NULL,
+      enabled           INTEGER NOT NULL DEFAULT 1,
+      days_after_expiry INTEGER NOT NULL DEFAULT 7,
+      message_template  TEXT    NOT NULL,
+      offer_text        TEXT,
+      created_at        TEXT    NOT NULL DEFAULT (datetime('now')),
+      updated_at        TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS recapture_sent (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id         INTEGER NOT NULL REFERENCES tenants(id),
+      subscriber_id     INTEGER NOT NULL REFERENCES subscribers(id),
+      campaign_id       INTEGER NOT NULL REFERENCES recapture_campaigns(id),
+      sent_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(subscriber_id, campaign_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_recapture_campaigns_tenant ON recapture_campaigns(tenant_id);
+    CREATE INDEX IF NOT EXISTS idx_recapture_sent_tenant ON recapture_sent(tenant_id);
+  `);
+
+  // Seed default recapture campaign for tenants that have none
+  const tenantsWithoutCampaign = db.prepare(`
+    SELECT t.id FROM tenants t
+    WHERE t.id NOT IN (SELECT DISTINCT tenant_id FROM recapture_campaigns)
+  `).all();
+
+  if (tenantsWithoutCampaign.length > 0) {
+    const insertCampaign = db.prepare(`
+      INSERT INTO recapture_campaigns (tenant_id, name, enabled, days_after_expiry, message_template, offer_text)
+      VALUES (@tenantId, 'Welcome Back', 1, 7, @template, 'Contact us for a special renewal offer!')
+    `);
+    const tmpl = 'Hello {customer_name}! Your IPTV subscription expired {days_ago} days ago. We would love to have you back! {offer_text}';
+    for (const t of tenantsWithoutCampaign) {
+      insertCampaign.run({ tenantId: t.id, template: tmpl });
+    }
+  }
+
   // Migrate old settings to tenant_settings if needed
   if (tableExists('settings')) {
     const oldSettings = db.prepare('SELECT * FROM settings').all();

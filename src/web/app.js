@@ -11,6 +11,7 @@ const bulkRoutes = require('./routes/bulk');
 const settingsRoutes = require('./routes/settings');
 const syncRoutes = require('./routes/sync');
 const platformRoutes = require('./routes/platform');
+const campaignRoutes = require('./routes/campaigns');
 const pageRoutes = require('./routes/pages');
 
 function createApp() {
@@ -34,6 +35,7 @@ function createApp() {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/sync', syncRoutes);
   app.use('/api/platform', platformRoutes);
+  app.use('/api/campaigns', campaignRoutes);
 
   // Page routes
   app.use('/', pageRoutes);

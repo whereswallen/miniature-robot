@@ -1,0 +1,110 @@
+<%- include('partials/sidebar', { page: 'campaigns', role }) %>
+<div class="content-area">
+  <div class="page-header">
+    <h1>Recapture Campaigns</h1>
+    <button class="btn btn-primary" onclick="showCreate()">+ New Campaign</button>
+  </div>
+
+  <p style="color:#999;margin-bottom:16px">Automatically message expired subscribers to win them back. Messages are sent daily via the customer Telegram bot.</p>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>Name</th><th>Days After Expiry</th><th>Enabled</th><th>Sent</th><th>Last Sent</th><th>Actions</th></tr>
+    </thead>
+    <tbody id="campaign-list"></tbody>
+  </table>
+
+  <h3 style="margin-top:32px">Template Variables</h3>
+  <p style="color:#999"><code>{customer_name}</code> — subscriber name, <code>{days_ago}</code> — days since expiry, <code>{offer_text}</code> — your offer text, <code>{username}</code> — xtream username</p>
+</div>
+
+<div id="campaign-modal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2 id="modal-title">New Campaign</h2>
+    <form id="campaign-form">
+      <input type="hidden" id="edit-id">
+      <div class="form-group"><label>Name</label><input type="text" id="c-name" required></div>
+      <div class="form-group"><label>Days After Expiry</label><input type="number" id="c-days" value="7" min="1" required></div>
+      <div class="form-group"><label>Message Template</label>
+        <textarea id="c-template" rows="4" required>Hello {customer_name}! Your IPTV subscription expired {days_ago} days ago. We would love to have you back! {offer_text}</textarea>
+      </div>
+      <div class="form-group"><label>Offer Text</label><input type="text" id="c-offer" placeholder="Contact us for a special renewal offer!"></div>
+      <div class="form-group"><label><input type="checkbox" id="c-enabled" checked> Enabled</label></div>
+      <div class="form-actions">
+        <button type="button" class="btn" onclick="hideModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  async function loadCampaigns() {
+    const res = await fetch('/api/campaigns/stats');
+    const data = await res.json();
+    document.getElementById('campaign-list').innerHTML = data.map(c => `
+      <tr>
+        <td>${c.name}</td>
+        <td>${c.days_after_expiry} days</td>
+        <td>
+          <button class="btn btn-sm ${c.enabled ? 'btn-success' : 'btn-danger'}" onclick="toggleCampaign(${c.id}, ${c.enabled ? 0 : 1})">
+            ${c.enabled ? 'On' : 'Off'}
+          </button>
+        </td>
+        <td>${c.sent_count || 0}</td>
+        <td>${c.last_sent_at || 'Never'}</td>
+        <td><button class="btn btn-sm" onclick='editCampaign(${JSON.stringify(c)})'>Edit</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="6">No campaigns yet</td></tr>';
+  }
+
+  function showCreate() {
+    document.getElementById('modal-title').textContent = 'New Campaign';
+    document.getElementById('edit-id').value = '';
+    document.getElementById('c-name').value = '';
+    document.getElementById('c-days').value = '7';
+    document.getElementById('c-template').value = 'Hello {customer_name}! Your IPTV subscription expired {days_ago} days ago. We would love to have you back! {offer_text}';
+    document.getElementById('c-offer').value = '';
+    document.getElementById('c-enabled').checked = true;
+    document.getElementById('campaign-modal').style.display = 'flex';
+  }
+
+  function editCampaign(c) {
+    document.getElementById('modal-title').textContent = 'Edit Campaign';
+    document.getElementById('edit-id').value = c.id;
+    document.getElementById('c-name').value = c.name;
+    document.getElementById('c-days').value = c.days_after_expiry;
+    document.getElementById('c-template').value = c.message_template;
+    document.getElementById('c-offer').value = c.offer_text || '';
+    document.getElementById('c-enabled').checked = !!c.enabled;
+    document.getElementById('campaign-modal').style.display = 'flex';
+  }
+
+  function hideModal() { document.getElementById('campaign-modal').style.display = 'none'; }
+
+  async function toggleCampaign(id, enabled) {
+    await fetch('/api/campaigns/' + id, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    loadCampaigns();
+  }
+
+  document.getElementById('campaign-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-id').value;
+    const body = {
+      name: document.getElementById('c-name').value,
+      daysAfterExpiry: parseInt(document.getElementById('c-days').value, 10),
+      messageTemplate: document.getElementById('c-template').value,
+      offerText: document.getElementById('c-offer').value,
+      enabled: document.getElementById('c-enabled').checked,
+    };
+    const url = id ? '/api/campaigns/' + id : '/api/campaigns';
+    const method = id ? 'PUT' : 'POST';
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (res.ok) { hideModal(); loadCampaigns(); } else { const d = await res.json(); alert(d.error); }
+  });
+
+  loadCampaigns();
+</script>
