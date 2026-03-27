@@ -1,0 +1,26 @@
+services:
+  linetrack:
+    build: .
+    container_name: linetrack
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - linetrack-data:/app/data
+    env_file:
+      - .env
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  linetrack-data:
+    driver: local
