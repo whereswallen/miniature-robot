@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup - LineTrack</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="login-page">
+  <div class="login-card" style="max-width:560px">
+
+    <!-- Step 1: Welcome -->
+    <div id="step-1" class="wizard-step">
+      <h1>Welcome to LineTrack</h1>
+      <p>Let's connect your first IPTV panel. You'll need:</p>
+      <ul style="text-align:left;margin:16px 0;line-height:2">
+        <li>Your Xtream UI panel URL (e.g. <code>http://panel.example.com:8080</code>)</li>
+        <li>Your reseller username</li>
+        <li>Your reseller password</li>
+      </ul>
+      <p style="color:#999;font-size:0.9em">This takes under a minute.</p>
+      <div class="form-actions" style="margin-top:24px">
+        <button class="btn" onclick="skipOnboarding()">Skip for now</button>
+        <button class="btn btn-primary" onclick="showStep(2)">Let's Go</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Panel Form -->
+    <div id="step-2" class="wizard-step" style="display:none">
+      <h1>Connect Your Panel</h1>
+      <form id="panel-form">
+        <div class="form-group">
+          <label>Panel Name</label>
+          <input type="text" id="panel-name" value="My Panel" required>
+        </div>
+        <div class="form-group">
+          <label>Panel URL</label>
+          <input type="text" id="panel-url" placeholder="http://your-panel.com:8080" required>
+        </div>
+        <div class="form-group">
+          <label>Reseller Username</label>
+          <input type="text" id="panel-username" required>
+        </div>
+        <div class="form-group">
+          <label>Reseller Password</label>
+          <input type="password" id="panel-password" required>
+        </div>
+        <div id="panel-error" class="error-msg" style="display:none"></div>
+        <div id="panel-success" class="success-msg" style="display:none"></div>
+        <div class="form-actions" style="margin-top:16px">
+          <button type="button" class="btn" onclick="skipOnboarding()">Skip</button>
+          <button type="button" class="btn" id="test-btn" onclick="testPanel()">Test Connection</button>
+          <button type="submit" class="btn btn-primary" id="save-btn">Save & Continue</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div id="step-3" class="wizard-step" style="display:none">
+      <h1>You're All Set!</h1>
+      <p>Your panel is connected and ready to go.</p>
+      <div style="text-align:left;margin:20px 0;line-height:2.2">
+        <p><strong>Next steps:</strong></p>
+        <ul>
+          <li><a href="/subscribers">Add your first subscriber</a></li>
+          <li><a href="/settings">Configure your Telegram bot</a></li>
+          <li><a href="/bulk">Import subscribers from CSV/XLSX</a></li>
+        </ul>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="completeOnboarding()">Go to Dashboard</button>
+    </div>
+  </div>
+
+  <script>
+    let createdPanelId = null;
+
+    function showStep(n) {
+      document.querySelectorAll('.wizard-step').forEach(s => s.style.display = 'none');
+      document.getElementById('step-' + n).style.display = 'block';
+    }
+
+    async function skipOnboarding() {
+      await fetch('/api/settings/onboarding/skip', { method: 'POST' });
+      window.location.href = '/';
+    }
+
+    async function completeOnboarding() {
+      await fetch('/api/settings/onboarding/complete', { method: 'POST' });
+      window.location.href = '/';
+    }
+
+    async function testPanel() {
+      const errEl = document.getElementById('panel-error');
+      const sucEl = document.getElementById('panel-success');
+      errEl.style.display = 'none';
+      sucEl.style.display = 'none';
+
+      // Save panel first if not already saved
+      if (!createdPanelId) {
+        const saved = await savePanel();
+        if (!saved) return;
+      }
+
+      document.getElementById('test-btn').textContent = 'Testing...';
+      try {
+        const res = await fetch('/api/panels/' + createdPanelId + '/health', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+          sucEl.textContent = 'Connection successful! Panel is online.';
+          sucEl.style.display = 'block';
+        } else {
+          errEl.textContent = 'Panel responded but health check failed. You can still continue.';
+          errEl.style.display = 'block';
+        }
+      } catch (err) {
+        errEl.textContent = 'Could not reach panel. Check URL and credentials. You can still continue.';
+        errEl.style.display = 'block';
+      }
+      document.getElementById('test-btn').textContent = 'Test Connection';
+    }
+
+    async function savePanel() {
+      const errEl = document.getElementById('panel-error');
+      errEl.style.display = 'none';
+
+      const body = {
+        name: document.getElementById('panel-name').value,
+        url: document.getElementById('panel-url').value,
+        username: document.getElementById('panel-username').value,
+        password: document.getElementById('panel-password').value,
+        isDefault: true,
+      };
+
+      if (!body.url || !body.username || !body.password) {
+        errEl.textContent = 'All fields are required.';
+        errEl.style.display = 'block';
+        return false;
+      }
+
+      try {
+        const res = await fetch('/api/panels', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        createdPanelId = data.id;
+        return true;
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.style.display = 'block';
+        return false;
+      }
+    }
+
+    document.getElementById('panel-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!createdPanelId) {
+        const saved = await savePanel();
+        if (!saved) return;
+      }
+      showStep(3);
+    });
+  </script>
+</body>
+</html>

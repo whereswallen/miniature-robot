@@ -1,0 +1,95 @@
+<%- include('../partials/sidebar', { page: 'tenants', role }) %>
+<div class="content-area">
+  <div class="page-header">
+    <h1>Tenants</h1>
+    <button class="btn btn-primary" onclick="showCreateTenant()">+ New Tenant</button>
+  </div>
+
+  <div class="search-bar">
+    <input type="text" id="search" placeholder="Search tenants..." onkeyup="loadTenants()">
+    <select id="status-filter" onchange="loadTenants()">
+      <option value="all">All Statuses</option>
+      <option value="active">Active</option>
+      <option value="trial">Trial</option>
+      <option value="suspended">Suspended</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+  </div>
+
+  <table class="data-table">
+    <thead>
+      <tr><th>Company</th><th>Owner</th><th>Plan</th><th>Status</th><th>Subscribers</th><th>Actions</th></tr>
+    </thead>
+    <tbody id="tenant-list"></tbody>
+  </table>
+</div>
+
+<div id="create-modal" class="modal" style="display:none">
+  <div class="modal-content">
+    <h2>Create Tenant</h2>
+    <form id="create-form">
+      <div class="form-group"><label>Company Name</label><input type="text" name="companyName" required></div>
+      <div class="form-group"><label>Owner Name</label><input type="text" name="ownerName" required></div>
+      <div class="form-group"><label>Owner Email</label><input type="email" name="ownerEmail" required></div>
+      <div class="form-group"><label>Plan</label>
+        <select name="plan"><option value="basic">Basic</option><option value="pro">Pro</option><option value="enterprise">Enterprise</option></select>
+      </div>
+      <div class="form-group"><label>Admin Username</label><input type="text" name="adminUsername" required></div>
+      <div class="form-group"><label>Admin Password</label><input type="password" name="adminPassword" required></div>
+      <div class="form-actions">
+        <button type="button" class="btn" onclick="hideModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  async function loadTenants() {
+    const search = document.getElementById('search').value;
+    const status = document.getElementById('status-filter').value;
+    const params = new URLSearchParams({ search, status });
+    const res = await fetch('/api/platform/tenants?' + params);
+    const { data } = await res.json();
+    const tbody = document.getElementById('tenant-list');
+    tbody.innerHTML = data.map(t => `
+      <tr>
+        <td><a href="/platform/tenants/${t.id}">${t.company_name}</a></td>
+        <td>${t.owner_name}</td>
+        <td>${t.plan}</td>
+        <td><span class="badge badge-${t.status}">${t.status}</span></td>
+        <td>${t.max_subscribers}</td>
+        <td>
+          ${t.status === 'active' || t.status === 'trial' ? `<button class="btn btn-sm btn-danger" onclick="suspendTenant(${t.id})">Suspend</button>` : ''}
+          ${t.status === 'suspended' ? `<button class="btn btn-sm btn-success" onclick="activateTenant(${t.id})">Activate</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function showCreateTenant() { document.getElementById('create-modal').style.display = 'flex'; }
+  function hideModal() { document.getElementById('create-modal').style.display = 'none'; }
+
+  document.getElementById('create-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const body = Object.fromEntries(form);
+    const res = await fetch('/api/platform/tenants', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (res.ok) { hideModal(); loadTenants(); } else { const d = await res.json(); alert(d.error); }
+  });
+
+  async function suspendTenant(id) {
+    if (!confirm('Suspend this tenant?')) return;
+    await fetch(`/api/platform/tenants/${id}/suspend`, { method: 'POST' });
+    loadTenants();
+  }
+
+  async function activateTenant(id) {
+    await fetch(`/api/platform/tenants/${id}/activate`, { method: 'POST' });
+    loadTenants();
+  }
+
+  loadTenants();
+</script>

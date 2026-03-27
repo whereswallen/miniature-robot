@@ -1,0 +1,22 @@
+<%- include('layout', { title: 'Dashboard', page: 'dashboard', body: `
+<h1>Dashboard</h1>
+<div class="stat-cards" id="stat-cards"></div>
+<div class="charts-row">
+  <div class="chart-card">
+    <h3>Revenue (Last 6 Months)</h3>
+    <canvas id="revenue-chart"></canvas>
+  </div>
+  <div class="chart-card">
+    <h3>Subscribers by Status</h3>
+    <canvas id="status-chart"></canvas>
+  </div>
+</div>
+<div class="card">
+  <h3>Expiring Soon (7 days)</h3>
+  <table class="table" id="expiring-table">
+    <thead><tr><th>Username</th><th>Name</th><th>Expiry</th><th>Days Left</th><th>Actions</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+<script src="/js/dashboard.js"></script>
+` }) %>
