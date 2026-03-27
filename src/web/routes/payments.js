@@ -67,15 +67,28 @@ router.get('/invoice/:id', (req, res) => {
   }
 });
 
-router.get('/invoice/:id/download', (req, res) => {
+router.get('/invoice/:id/download', async (req, res) => {
+  const pdfQueue = require('../../services/pdfQueue');
+  const invoiceService = require('../../services/invoiceService');
+  const paymentId = parseInt(req.params.id, 10);
+
   try {
-    const invoiceService = require('../../services/invoiceService');
-    const doc = invoiceService.generateInvoicePDF(req.tenantId, parseInt(req.params.id, 10));
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=invoice-${req.params.id}.pdf`);
-    doc.pipe(res);
+    await pdfQueue.enqueue(() => {
+      const doc = invoiceService.generateInvoicePDF(req.tenantId, paymentId);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=invoice-${paymentId}.pdf`);
+      return new Promise((resolve, reject) => {
+        doc.pipe(res);
+        doc.on('end', resolve);
+        doc.on('error', reject);
+      });
+    });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    if (err.message === 'Queue full') {
+      res.status(503).json({ error: 'Server busy generating PDFs. Try again shortly.' });
+    } else {
+      res.status(400).json({ error: err.message });
+    }
   }
 });
 

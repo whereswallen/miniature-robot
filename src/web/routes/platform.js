@@ -209,4 +209,11 @@ router.post('/billing/manual', (req, res) => {
   }
 });
 
+// --- PDF Queue monitoring ---
+
+router.get('/pdf-queue', (req, res) => {
+  const pdfQueue = require('../../services/pdfQueue');
+  res.json(pdfQueue.getStatus());
+});
+
 module.exports = router;
